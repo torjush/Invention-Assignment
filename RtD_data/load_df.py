@@ -25,6 +25,14 @@ def get_device_data(df, device_id):
 
     return device_df
 
+def get_rolling_device(device):
+    device.set_index('timestamp', inplace=True)
+
+    device.sort_index(inplace=True)
+
+    accel = device[['x', 'y', 'z']].dropna(axis=0, how='all') # drop NaN values
+    return accel.rolling('30min') # rolling window by 30 minutes
+
 
 def main():
     data_directory = '/field/'
@@ -40,20 +48,16 @@ def main():
         'fridge_3': '247189e61682',
     }
 
+    device = get_device_data(df, devices['fridge_1'])
+    fridge_1 = get_rolling_device(device)
+    fridge_1.mean().plot() # not very useful right now
+    plt.show()
+
     # for device_name, device_id in devices.iteritems():
     #     device_df = get_device_data(df, device_id)
     #     print('Device: {}'.format(device_name))
     #     print(device_df.describe())
 
-    fridge_1 = get_device_data(df, devices['fridge_1'])
-    fridge_1.set_index('timestamp', inplace=True)
-
-    fridge_1.sort_index(inplace=True)
-    # fridge_1[['x', 'y', 'z']].plot()
-    # plt.show()
-
-    windowed = fridge_1[['x', 'y', 'z']].rolling(pd.TimeDelta(minutes=30))
-    print(windowed.head(10))
 
 
 if __name__ == '__main__':
