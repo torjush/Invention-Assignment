@@ -40,6 +40,20 @@ def main():
         'fridge_3': '247189e61682',
     }
 
+    # for device_name, device_id in devices.iteritems():
+    #     device_df = get_device_data(df, device_id)
+    #     print('Device: {}'.format(device_name))
+    #     print(device_df.describe())
+
+    fridge_1 = get_device_data(df, devices['fridge_1'])
+    fridge_1.set_index('timestamp', inplace=True)
+
+    fridge_1.sort_index(inplace=True)
+    # fridge_1[['x', 'y', 'z']].plot()
+    # plt.show()
+
+    windowed = fridge_1[['x', 'y', 'z']].rolling(pd.TimeDelta(minutes=30))
+    print(windowed.head(10))
 
 
 if __name__ == '__main__':
