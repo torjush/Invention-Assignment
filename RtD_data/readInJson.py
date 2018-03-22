@@ -14,21 +14,21 @@ from datetime import datetime
 def load_json(all_files):
     d = []
     for f in all_files:
-        print "********************Data Info Begin************************"
-        print f
+        # print "********************Data Info Begin************************"
+        # print f
         with open(f) as json_data:
             currentDF = pd.DataFrame(json.loads(l) for l in json_data)
             d.append(currentDF)
         #   d = json.load(json_data)
-        print currentDF.info()
+        # print currentDF.info()
         # print d.columns.values
         # print "The data contains " + str(len(currentDF)) + " events and " + str(len(currentDF.columns)) + " columns"
         # print currentDF.columns
-        print "The first line of information"
-        print currentDF[:10]
-        print currentDF.tail()
+        # print "The first line of information"
+        # print currentDF[:10]
+        # print currentDF.tail()
 
-        print "********************Data Info End************************"
+        # print "********************Data Info End************************"
 
     return d
 

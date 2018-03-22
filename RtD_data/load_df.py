@@ -5,31 +5,42 @@ import os
 import glob
 import readInJson
 
-data_directory = '/field/'
 
-folder = os.getcwd() + data_directory
-files = "*.json"
+def load_all_data(folder, file_names):
+    all_files = glob.glob(folder + file_names)
+
+    print('=== Loading data ===')
+    all_data = readInJson.load_json(all_files)
+
+    print('=== All data loaded, concatenating data frames ===')
+    df = pd.concat(all_data)
+    return df
 
 
-all_files = glob.glob(folder + files)
+def get_device_data(df, device_id):
+    device_df = df[df['deviceId'] == device_id]
+    device_df = device_df.join(pd.DataFrame(device_df["data"].to_dict()).T)
+    device_df.drop('data', axis=1, inplace=True)
+    device_df = readInJson.extract_timestamp_TI(device_df)
 
-all_data = readInJson.load_json(all_files)
+    return device_df
 
-df = pd.concat(all_data)
 
-homes = df['homeId'].unique()
-devices = df['deviceId'].unique()
-sensors = df['event'].unique()
-sensors = np.array([s.encode('ascii') for s in sensors])
+def main():
+    data_directory = '/field/'
 
-example_fridge = df[df['deviceId'] == '247189e61784']
-example_fridge = example_fridge.join(pd.DataFrame(example_fridge["data"].to_dict()).T)
-example_fridge.drop('data', axis=1, inplace=True)
+    folder = os.getcwd() + data_directory
+    files = "*.json"
 
-example_fridge = readInJson.extract_timestamp_TI(example_fridge)
-example_fridge.set_index('timestamp', inplace=True)
+    df = load_all_data(folder, files)
 
-print(example_fridge.head())
+    devices = {
+        'fridge_1': '247189e78180',
+        'fridge_2': '247189e61784',
+        'fridge_3': '247189e61682',
+    }
 
-example_fridge[['x', 'y', 'z']].plot()
-plt.show()
+
+
+if __name__ == '__main__':
+    main()
