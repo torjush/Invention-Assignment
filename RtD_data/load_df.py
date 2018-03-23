@@ -25,13 +25,15 @@ def get_device_data(df, device_id):
 
     return device_df
 
-def get_rolling_device(device):
+def get_movement_data(device, window='20s', threshold=30):
     device.set_index('timestamp', inplace=True)
 
     device.sort_index(inplace=True)
 
     accel = device[['x', 'y', 'z']].dropna(axis=0, how='all') # drop NaN values
-    return accel.rolling('30min') # rolling window by 30 minutes
+
+    roll = accel.rolling(window)
+    return accel[roll.count() > threshold].dropna() # Keep only "busy" measurements
 
 
 def main():
@@ -49,8 +51,8 @@ def main():
     }
 
     device = get_device_data(df, devices['fridge_1'])
-    fridge_1 = get_rolling_device(device)
-    fridge_1.mean().plot() # not very useful right now
+    fridge_1 = get_movement_data(device)
+    fridge_1.plot() # not very useful right now
     plt.show()
 
     # for device_name, device_id in devices.iteritems():
