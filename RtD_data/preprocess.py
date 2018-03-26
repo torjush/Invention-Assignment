@@ -27,6 +27,7 @@ def multipage(filename, figs=None, dpi=200):
         fig.savefig(pp, format='pdf')
     pp.close()
 
+
 def convert_to_DataFrame_TI(dataDir, fileName, numHome, numDevice, numModality, showPlot, startDate, endDate):
     # dataDir = '/data/'
     # fileName = "*0611.json"
