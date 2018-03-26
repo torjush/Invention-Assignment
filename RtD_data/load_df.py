@@ -25,15 +25,20 @@ def get_device_data(df, device_id):
 
     return device_df
 
-def get_movement_data(device, window='20s', threshold=30):
-    device.set_index('timestamp', inplace=True)
 
-    device.sort_index(inplace=True)
+def preprocess_imu(device_df, window_length='1s', threshold=2):
+    """Returns windowed imu data from device_df,
+    getting rid of NaN values, as these only occur when
+    the environment measurements are out of sync with imu.
+    If threshold is set, only windows with this number or
+    more data points are returned"""
+    device_df.set_index('timestamp', inplace=True)
+    device_df.sort_index(inplace=True)
 
-    accel = device[['x', 'y', 'z']].dropna(axis=0, how='all') # drop NaN values
-
-    roll = accel.rolling(window)
-    return accel[roll.count() > threshold].dropna() # Keep only "busy" measurements
+    imu_data = device_df[['x', 'y', 'z']].dropna(axis=0, how='all')
+    windowed_imu = imu_data.rolling(window_length)
+    imu_data = imu_data[windowed_imu.count() > threshold].dropna()
+    return imu_data
 
 
 def main():
@@ -51,15 +56,9 @@ def main():
     }
 
     device = get_device_data(df, devices['fridge_1'])
-    fridge_1 = get_movement_data(device)
-    fridge_1.plot() # not very useful right now
+    fridge_1 = preprocess_imu(device)
+    fridge_1.plot()  # not very useful right now
     plt.show()
-
-    # for device_name, device_id in devices.iteritems():
-    #     device_df = get_device_data(df, device_id)
-    #     print('Device: {}'.format(device_name))
-    #     print(device_df.describe())
-
 
 
 if __name__ == '__main__':
