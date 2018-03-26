@@ -26,7 +26,7 @@ def get_device_data(df, device_id):
     return device_df
 
 
-def preprocess_imu(device_df, window_length='20s', threshold=30):
+def preprocess_imu(device_df, window_length='1s', threshold=2):
     """Returns windowed imu data from device_df,
     getting rid of NaN values, as these only occur when
     the environment measurements are out of sync with imu.
@@ -37,8 +37,7 @@ def preprocess_imu(device_df, window_length='20s', threshold=30):
 
     imu_data = device_df[['x', 'y', 'z']].dropna(axis=0, how='all')
     windowed_imu = imu_data.rolling(window_length)
-    if threshold:
-        imu_data[windowed_imu.count() > threshold].dropna(inplace=True)
+    imu_data = imu_data[windowed_imu.count() > threshold].dropna()
     return imu_data
 
 
