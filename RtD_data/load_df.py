@@ -14,6 +14,8 @@ def load_all_data(folder, file_names):
 
     print('=== All data loaded, concatenating data frames ===')
     df = pd.concat(all_data)
+    df = readInJson.extract_timestamp_TI(df)
+    df.sort_values('timestamp', inplace=True)
     return df
 
 
@@ -21,7 +23,6 @@ def get_device_data(df, device_id):
     device_df = df[df['deviceId'] == device_id]
     device_df = device_df.join(pd.DataFrame(device_df["data"].to_dict()).T)
     device_df.drop('data', axis=1, inplace=True)
-    device_df = readInJson.extract_timestamp_TI(device_df)
 
     return device_df
 
