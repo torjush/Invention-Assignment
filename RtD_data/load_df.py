@@ -38,8 +38,52 @@ def preprocess_imu(device_df, window_length='1s', threshold=2):
 
     imu_data = device_df[['x', 'y', 'z']].dropna(axis=0, how='all')
     windowed_imu = imu_data.rolling(window_length)
-    imu_data = imu_data[windowed_imu.count() > threshold].dropna()
+    imu_data = imu_data[windowed_imu.count() > threshold]
     return imu_data
+
+
+class Group:
+    def __init__(self, start_time, end_time, xs, ys, zs):
+        self.start_time = start_time
+        self.end_time = end_time
+        self.xs = xs
+        self.ys = ys
+        self.zs = zs
+
+
+def group_by_event(device_df):
+    """Returns a list of groups
+    """
+    groups = []
+
+    start_time = None
+    xs, ys, zs = [], [], []
+
+    for timestamp, values in device_df.iterrows():
+        # end group creation
+        if start_time != None and values.isna().any():
+            end_time = timestamp
+            group = Group(start_time, end_time, xs, ys, zs)
+            groups.append(group)
+
+            start_time = None
+            xs, ys, zs = [], [], []
+
+
+        # start group creation
+        if start_time == None and not values.isna().any():
+            start_time = timestamp
+
+        # normal append
+        if not values.isna().any():
+            x, y, z = values
+            xs.append(x)
+            ys.append(y)
+            zs.append(z)
+
+    return groups
+
+
 
 
 def main():
@@ -58,6 +102,10 @@ def main():
 
     device = get_device_data(df, devices['fridge_1'])
     fridge_1 = preprocess_imu(device)
+    print("=== grouping data ===")
+    groups = group_by_event(fridge_1)
+    for group in groups:
+        print(group.start_time)
     fridge_1.plot()  # not very useful right now
     plt.show()
 
