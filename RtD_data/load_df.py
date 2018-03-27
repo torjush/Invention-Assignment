@@ -55,11 +55,21 @@ def main():
         'fridge_1': '247189e78180',
         'fridge_2': '247189e61784',
         'fridge_3': '247189e61682',
+        'chair_1': '247189e76106',
+        'chair_2': '247189e98d83',
+        'chair_3': '247189e61802'
     }
 
     device = get_device_data(df, devices['fridge_1'])
     fridge_1 = preprocess_imu(device)
-    fridge_1.plot()  # not very useful right now
+    device = get_device_data(df, devices['chair_1'])
+    chair_1 = preprocess_imu(device)
+
+    fig, [ax1, ax2] = plt.subplots(nrows=2, sharex=True)
+    fridge_1.plot(ax=ax1)
+    ax1.set_title('Accelerometer values from fridge')
+    chair_1.plot(ax=ax2)
+    ax2.set_title('Accelerometer values from Kitchen chair')
     plt.show()
 
 
