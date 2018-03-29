@@ -27,24 +27,15 @@ def get_device_data(df, device_id):
     return device_df
 
 
-def preprocess_accel(device_df, window_length='1s', threshold=2):
+def threshold_data(device_df, keep_values, window_length='10s', threshold=2):
     """Returns windowed imu data from device_df,
     getting rid of NaN values, as these only occur when
     the environment measurements are out of sync with imu.
     If threshold is set, only windows with this number or
     more data points are returned"""
-    imu_data = device_df[['x', 'y', 'z']].dropna(axis=0, how='all')
+    imu_data = device_df[keep_values].dropna(axis=0, how='all')
     windowed_imu = imu_data.rolling(window_length)
     imu_data = imu_data[windowed_imu.count() > threshold]
-    return imu_data
-
-
-def preprocess_other(device_df):
-    """Returns imu data for all measurements except for
-    the accelerometer"""
-    imu_data = device_df[['battery', 'humidity', 'lux', 'pressure', 'rssi', 'temperature']]
-    imu_data.dropna(inplace=True)
-
     return imu_data
 
 
@@ -90,11 +81,20 @@ def main():
         'fridge_3': '247189e61682',
         'Remote Control': '247189ea0782',
     }
-
+    measurements = ['battery', 'humidity', 'lux', 'pressure', 'rssi', 'temperature']
+    accelerometer = ['x', 'y', 'z']
     device = get_device_data(df, devices['Remote Control'])
     preprocess_imu(device)
-    data = preprocess_accel(device)
-    data.plot()  # not very useful right now
+
+    accel = threshold_data(device, accelerometer)
+    temp = threshold_data(device, ['temperature'])
+
+    fig, [ax1, ax2] = plt.subplots(nrows=2, sharex=True)
+    accel.plot(ax=ax1)
+    ax1.set_title("Accel values")
+    temp.plot(ax=ax2)
+    ax2.set_title("Temperature values")
+
     plt.show()
 
 
