@@ -53,14 +53,14 @@ def group_by_event(device_df):
 
     for timestamp, values in device_df.iterrows():
         # end group creation
-        if start_time is not None and values.isna().any():
+        if start_time is not None and values.isna().all():
             end_time = timestamp
             event = device_df[start_time:end_time]
             groups.append(event)
             start_time = None
 
         # start group creation
-        elif start_time is None and not values.isna().any():
+        elif start_time is None and not values.isna().all():
             start_time = timestamp
 
     return groups
@@ -88,11 +88,20 @@ def main():
     accel = threshold_data(device, accelerometer)
     temp = threshold_data(device, ['temperature'])
 
-    fig, [ax1, ax2] = plt.subplots(nrows=2, sharex=True)
-    accel.plot(ax=ax1)
-    ax1.set_title("Accel values")
-    temp.plot(ax=ax2)
-    ax2.set_title("Temperature values")
+    #windowed_imu = imu_data.rolling(window_length)
+    accel_mean = accel.rolling('10s').mean()
+    temp_mean = temp.rolling('10s').mean()
+
+    accel_std = accel.rolling('10s').std()
+    temp_std = temp.rolling('10s').std()
+
+
+    fig, [ax1, ax2, ax3, ax4] = plt.subplots(nrows=4, sharex=True)
+    accel_mean.plot(ax=ax1)
+    accel_std.plot(ax=ax2)
+    temp_mean.plot(ax=ax3)
+    temp_std.plot(ax=ax4)
+
 
     plt.show()
 
