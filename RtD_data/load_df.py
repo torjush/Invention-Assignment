@@ -65,6 +65,21 @@ def group_by_event(device_df):
     return groups
 
 
+def plot_objects(objects, df):
+    fig, axes = plt.subplots(nrows=len(objects), sharex=True)
+    i = 0
+    for obj in objects:
+        device = get_device_data(df, obj)
+        data = preprocess_imu(device)
+        print("=== plotting data for {} ===".format(objects[obj]))
+        data.plot(ax=axes[i])
+        axes[i].set_title(objects[obj])
+        i += 1
+
+    plt.show()
+
+
+
 def main():
     data_directory = '/field/'
 
@@ -73,18 +88,31 @@ def main():
 
     df = load_all_data(folder, files)
 
-    devices = {
-        'fridge_1': '247189e78180',
-        'fridge_2': '247189e61784',
-        'fridge_3': '247189e61682',
+    objects01 = {
+        '247189e98685': 'Remote Control',
+        '247189e83001': 'Spider Stick',
+        '247189e72603': 'Garden Door',
+        '247189e78180': 'Fridge',
+        '247189e76106': 'Breakfast Chair',
+        '247189e87d85': 'Tray',
+    }
+    objects02 = {
+        '247189e98d83': 'Chair Pillow',
+        '247189ea0782': 'Remote Control',
+        '247189e74381': 'Rope on Stairs',
+        '247189e64706': 'Kitchen Drawer',
+        '247189e61784': 'Fridge'
     }
 
-    device = get_device_data(df, devices['fridge_1'])
-    fridge_1 = preprocess_imu(device)
-    print("=== grouping data ===")
-    groups = group_by_event(fridge_1)
-    fridge_1.plot()  # not very useful right now
-    plt.show()
+    objects03 = {
+        '247189e61802': 'Kitchen Chair',
+        '247189e61682': 'Fridge',
+        '247189e76c05': 'Remote Control',
+        '247189e88b80': 'Kitchen Cabinet Door',
+        '247189e8e701': 'Knitting Needle',
+        '247189e6c680': 'Tablet'
+    }
+    plot_objects(objects02, df)
 
 
 if __name__ == '__main__':
