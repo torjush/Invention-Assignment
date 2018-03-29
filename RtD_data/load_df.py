@@ -50,18 +50,17 @@ def group_by_event(device_df):
     groups = []
 
     start_time = None
-    xs, ys, zs = [], [], []
 
     for timestamp, values in device_df.iterrows():
         # end group creation
-        if start_time != None and values.isna().any():
+        if start_time is not None and values.isna().any():
             end_time = timestamp
             event = device_df[start_time:end_time]
             groups.append(event)
             start_time = None
 
         # start group creation
-        elif start_time == None and not values.isna().any():
+        elif start_time is None and not values.isna().any():
             start_time = timestamp
 
     return groups
