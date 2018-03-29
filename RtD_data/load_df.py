@@ -55,7 +55,7 @@ def group_by_event(device_df):
 
     for timestamp, values in device_df.iterrows():
         # end group creation
-        if start_time is not None and values.isna().any():
+        if start_time is not None and values.isna().all():
             end_time = timestamp
             event = device_df[start_time:end_time]
             event = event.dropna()
@@ -63,7 +63,7 @@ def group_by_event(device_df):
             start_time = None
 
         # start group creation
-        elif start_time is None and not values.isna().any():
+        elif start_time is None and not values.isna().all():
             start_time = timestamp
 
     return groups
@@ -112,23 +112,21 @@ def main():
     accel = threshold_data(device, accelerometer)
     temp = threshold_data(device, ['temperature'])
 
-    device = get_device_data(df, devices['chair_1'])
-    fridge_1 = preprocess_imu(device)
+    #windowed_imu = imu_data.rolling(window_length)
+    accel_mean = accel.rolling('10s').mean()
+    temp_mean = temp.rolling('10s').mean()
 
-    print("=== grouping data ===")
-    groups = group_by_event(fridge_1)
-    fv = make_featurevectors(groups, 100)
+    accel_std = accel.rolling('10s').std()
+    temp_std = temp.rolling('10s').std()
 
-    # Try a few different values for k
-    clusterings = []
-    scores = []
-    K = [2, 3, 5, 7, 13, 25]
-    for k in K:
-        cluster = AgglomerativeClustering(n_clusters=k)
-        cluster.fit(fv)
 
-        clusterings.append(cluster)
-        scores.append(cluster.score(fv))
+    fig, [ax1, ax2, ax3, ax4] = plt.subplots(nrows=4, sharex=True)
+    accel_mean.plot(ax=ax1)
+    accel_std.plot(ax=ax2)
+    temp_mean.plot(ax=ax3)
+    temp_std.plot(ax=ax4)
+
+>>>>>>> mean_std
 
     # Choose the k that gives the best score, and plot the means
     i = np.argmax(scores)
