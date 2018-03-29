@@ -4,6 +4,8 @@ import matplotlib.pyplot as plt
 import os
 import glob
 import readInJson
+from sklearn.cluster import KMeans
+from sklearn.cluster import AgglomerativeClustering
 
 
 def load_all_data(folder, file_names):
@@ -42,48 +44,45 @@ def preprocess_imu(device_df, window_length='1s', threshold=2):
     return imu_data
 
 
-class Group:
-    def __init__(self, start_time, end_time, xs, ys, zs):
-        self.start_time = start_time
-        self.end_time = end_time
-        self.xs = xs
-        self.ys = ys
-        self.zs = zs
-
-
 def group_by_event(device_df):
     """Returns a list of groups
     """
     groups = []
 
     start_time = None
-    xs, ys, zs = [], [], []
 
     for timestamp, values in device_df.iterrows():
         # end group creation
-        if start_time != None and values.isna().any():
+        if start_time is not None and values.isna().any():
             end_time = timestamp
-            group = Group(start_time, end_time, xs, ys, zs)
-            groups.append(group)
-
+            event = device_df[start_time:end_time]
+            event = event.dropna()
+            groups.append(event)
             start_time = None
-            xs, ys, zs = [], [], []
-
 
         # start group creation
-        if start_time == None and not values.isna().any():
+        elif start_time is None and not values.isna().any():
             start_time = timestamp
-
-        # normal append
-        if not values.isna().any():
-            x, y, z = values
-            xs.append(x)
-            ys.append(y)
-            zs.append(z)
 
     return groups
 
 
+def make_featurevectors(grouped_dfs, N_fft):
+    feature_vectors = np.ndarray(shape=(len(grouped_dfs), 3*N_fft))
+    for i, group in enumerate(grouped_dfs):
+        x = group['x'].values
+        y = group['y'].values
+        z = group['z'].values
+
+        X = np.fft.fft(x, N_fft)
+        Y = np.fft.fft(y, N_fft)
+        Z = np.fft.fft(z, N_fft)
+
+        feature_vector = np.concatenate((X, Y, Z))
+        feature_vector = np.abs(feature_vector)
+
+        feature_vectors[i, :] = feature_vector
+    return feature_vectors
 
 
 def main():
@@ -103,19 +102,54 @@ def main():
         'chair_3': '247189e61802'
     }
 
-    device = get_device_data(df, devices['fridge_1'])
+    device = get_device_data(df, devices['chair_1'])
     fridge_1 = preprocess_imu(device)
 
-    device = get_device_data(df, devices['chair_1'])
-    chair_1 = preprocess_imu(device)
+    print("=== grouping data ===")
+    groups = group_by_event(fridge_1)
+    fv = make_featurevectors(groups, 100)
 
-    fig, [ax1, ax2] = plt.subplots(nrows=2, sharex=True)
-    fridge_1.plot(ax=ax1)
-    ax1.set_title('Accelerometer values from fridge')
-    chair_1.plot(ax=ax2)
-    ax2.set_title('Accelerometer values from Kitchen chair')
+    # Try a few different values for k
+    clusterings = []
+    scores = []
+    K = [2, 3, 5, 7, 13, 25]
+    for k in K:
+        cluster = AgglomerativeClustering(n_clusters=k)
+        cluster.fit(fv)
+
+        clusterings.append(cluster)
+        scores.append(cluster.score(fv))
+
+    # Choose the k that gives the best score, and plot the means
+    i = np.argmax(scores)
+
+    print('The best value for k was k={}, with a score of {}'.format(K[i], scores[i]))
+
+    centers = clusterings[i].cluster_centers_
+
+    for center in centers:
+        X = center[:100]
+        Y = center[100:200]
+        Z = center[200:300]
+
+        x = np.fft.ifft(X, 100)
+        y = np.fft.ifft(Y, 100)
+        z = np.fft.ifft(Z, 100)
+
+        plt.figure()
+        plt.plot(x)
+        plt.plot(y)
+        plt.plot(z)
 
     plt.show()
+
+    # for i, index in enumerate(cl_index):
+    #     if index == 1:
+    #         print(groups[i].index)
+
+    # fridge_1.plot()
+
+    # plt.show()
 
 
 if __name__ == '__main__':
