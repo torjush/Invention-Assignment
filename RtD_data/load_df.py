@@ -18,6 +18,7 @@ def load_all_data(folder, file_names):
     df = pd.concat(all_data)
     df = readInJson.extract_timestamp_TI(df)
     df.sort_values('timestamp', inplace=True)
+    df.set_index('timestamp', inplace=True)
     return df
 
 
@@ -41,18 +42,32 @@ def threshold_data(device_df, keep_values, window_length='10s', threshold=2):
     return imu_data
 
 
-def preprocess_imu(device_df):
-    device_df.set_index('timestamp', inplace=True)
-    device_df.sort_index(inplace=True)
-    accel = device_df[['x', 'y', 'z']].where(device_df['event'] == 'accel')
-    gyro = device_df[['x', 'y', 'z']].where(device_df['event'] == 'gyro')
+def extract_imu(device_df):
+    device_df[['gyro_x', 'gyro_y', 'gyro_z']] = device_df[['x', 'y', 'z']].where(device_df['event'] == 'gyro')
+    device_df[['accel_x', 'accel_y', 'accel_z']] = device_df[['x', 'y', 'z']].where(device_df['event'] == 'accel')
+    device_df[['mag_x', 'mag_y', 'mag_z']] = device_df[['x', 'y', 'z']].where(device_df['event'] == 'mag')
 
-    imu = {'accelerometer': accel, 'gyroscope': gyro}
+    device_df.drop(['x', 'y', 'z'], inplace=True)
+    return device_df
 
-    for sensor in imu:
-        imu[sensor] = imu[sensor].fillna(0)
 
-    return imu
+def preprocess(df):
+    if 'temperature' in df.columns:
+        df['temperature'] = df['temperature'].fillna(method='bfill')
+    if 'pressure' in df.columns:
+        df['pressure'] = df['pressure'].fillna(method='bfill')
+    if 'lux' in df.columns:
+        df['lux'] = df['lux'].fillna(method='bfill')
+    if 'humidity' in df.columns:
+        df['humidity'] = df['humidity'].fillna(method='bfill')
+    if 'gyro_x' in df.columns:
+        df[['gyro_x', 'gyro_y', 'gyro_z']] = df[['gyro_x', 'gyro_y', 'gyro_z']].fillna(0)
+    if 'accel_x' in df.columns:
+        df[['accel_x', 'accel_y', 'accel_z']] = df[['accel_x', 'accel_y', 'accel_z']].fillna(0)
+    if 'mag_x' in df.columns:
+        df[['mag_x', 'mag_y', 'mag_z']] = df[['mag_x', 'mag_y', 'mag_z']].fillna(0)
+
+    return df
 
 
 def group_by_event(device_df):
@@ -115,26 +130,19 @@ def main():
     }
     device = get_device_data(df, devices['Remote Control'])
 
-    print(device)
-    imu = preprocess_imu(device)
+    device = extract_imu(device)
 
-    for sensor in imu:
-        imu[sensor].plot()
+    data_columns = [
+        'temperature',
+        'accel_x',
+        'accel_y',
+        'accel_z',
+        'gyro_x',
+        'gyro_y',
+        'gyro_z',
+    ]
 
-    plt.show()
-
-    # accel = device[['x', 'y', 'z']].fillna(0)  # threshold_data(device, accelerometer)
-    # temp = device['temperature'].fillna(method='bfill')  # threshold_data(device, ['temperature'])
-
-    # data = pd.concat((accel, temp), axis=1)
-
-    # windowed = data.rolling('10s').mean()
-
-    # data = windowed.values
-    # data = data.T
-
-    # print(data.shape)
-
+    data = preprocess(device[data_columns])
 
 if __name__ == '__main__':
     main()
