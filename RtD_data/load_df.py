@@ -44,6 +44,15 @@ def threshold_data(device_df, keep_values, window_length='10s', threshold=2):
 def preprocess_imu(device_df):
     device_df.set_index('timestamp', inplace=True)
     device_df.sort_index(inplace=True)
+    accel = device_df[['x', 'y', 'z']].where(device_df['event'] == 'accel')
+    gyro = device_df[['x', 'y', 'z']].where(device_df['event'] == 'gyro')
+
+    imu = {'accelerometer': accel, 'gyroscope': gyro}
+
+    for sensor in imu:
+        imu[sensor] = imu[sensor].fillna(0)
+
+    return imu
 
 
 def group_by_event(device_df):
@@ -104,59 +113,27 @@ def main():
         'chair_3': '247189e61802',
         'Remote Control': '247189ea0782'
     }
-    measurements = ['battery', 'humidity', 'lux', 'pressure', 'rssi', 'temperature']
-    accelerometer = ['x', 'y', 'z']
     device = get_device_data(df, devices['Remote Control'])
-    preprocess_imu(device)
 
-    accel = threshold_data(device, accelerometer)
-    temp = threshold_data(device, ['temperature'])
+    print(device)
+    imu = preprocess_imu(device)
 
-    #windowed_imu = imu_data.rolling(window_length)
-    accel_mean = accel.rolling('10s').mean()
-    temp_mean = temp.rolling('10s').mean()
+    for sensor in imu:
+        imu[sensor].plot()
 
-    accel_std = accel.rolling('10s').std()
-    temp_std = temp.rolling('10s').std()
-
-
-    fig, [ax1, ax2, ax3, ax4] = plt.subplots(nrows=4, sharex=True)
-    accel_mean.plot(ax=ax1)
-    accel_std.plot(ax=ax2)
-    temp_mean.plot(ax=ax3)
-    temp_std.plot(ax=ax4)
-
->>>>>>> mean_std
-
-    # Choose the k that gives the best score, and plot the means
-    i = np.argmax(scores)
-
-    print('The best value for k was k={}, with a score of {}'.format(K[i], scores[i]))
-
-    centers = clusterings[i].cluster_centers_
-
-    for center in centers:
-        X = center[:100]
-        Y = center[100:200]
-        Z = center[200:300]
-
-        x = np.fft.ifft(X, 100)
-        y = np.fft.ifft(Y, 100)
-        z = np.fft.ifft(Z, 100)
-
-        plt.figure()
-        plt.plot(x)
-        plt.plot(y)
-        plt.plot(z)
     plt.show()
 
-    # for i, index in enumerate(cl_index):
-    #     if index == 1:
-    #         print(groups[i].index)
+    # accel = device[['x', 'y', 'z']].fillna(0)  # threshold_data(device, accelerometer)
+    # temp = device['temperature'].fillna(method='bfill')  # threshold_data(device, ['temperature'])
 
-    # fridge_1.plot()
+    # data = pd.concat((accel, temp), axis=1)
 
-    # plt.show()
+    # windowed = data.rolling('10s').mean()
+
+    # data = windowed.values
+    # data = data.T
+
+    # print(data.shape)
 
 
 if __name__ == '__main__':
