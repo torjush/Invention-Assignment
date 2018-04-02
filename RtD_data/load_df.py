@@ -4,8 +4,9 @@ import matplotlib.pyplot as plt
 import os
 import glob
 import readInJson
-from sklearn.cluster import KMeans
-from sklearn.cluster import AgglomerativeClustering
+from sklearn.naive_bayes import GaussianNB
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import accuracy_score, confusion_matrix
 
 
 def load_all_data(folder, file_names):
@@ -70,6 +71,18 @@ def preprocess(df):
     return df
 
 
+def vectorize(data, window_length):
+    """Window values in data and concatenate signal to make vectors"""
+    vectors = np.ndarray(
+        shape=(data.shape[0] - window_length, data.shape[1] * window_length)
+        )
+    for i in range(data.shape[0] - window_length):
+        vector = data[i:i + window_length, :].reshape(data.shape[1] * window_length)
+        vectors[i] = vector
+
+    return vectors
+
+
 def group_by_event(device_df):
     """Returns a list of groups
     """
@@ -93,24 +106,6 @@ def group_by_event(device_df):
     return groups
 
 
-def make_featurevectors(grouped_dfs, N_fft):
-    feature_vectors = np.ndarray(shape=(len(grouped_dfs), 3*N_fft))
-    for i, group in enumerate(grouped_dfs):
-        x = group['x'].values
-        y = group['y'].values
-        z = group['z'].values
-
-        X = np.fft.fft(x, N_fft)
-        Y = np.fft.fft(y, N_fft)
-        Z = np.fft.fft(z, N_fft)
-
-        feature_vector = np.concatenate((X, Y, Z))
-        feature_vector = np.abs(feature_vector)
-
-        feature_vectors[i, :] = feature_vector
-    return feature_vectors
-
-
 def main():
     data_directory = '/field/'
 
@@ -128,9 +123,6 @@ def main():
         'chair_3': '247189e61802',
         'Remote Control': '247189ea0782'
     }
-    device = get_device_data(df, devices['Remote Control'])
-
-    device = extract_imu(device)
 
     data_columns = [
         'temperature',
@@ -142,7 +134,34 @@ def main():
         'gyro_z',
     ]
 
-    data = preprocess(device[data_columns])
+    fridge_data = {
+        1: get_device_data(df, devices['fridge_1']),
+        2: get_device_data(df, devices['fridge_2']),
+        3: get_device_data(df, devices['fridge_3'])
+    }
+
+    for i, fridge in enumerate(fridge_data):
+        fridge_data[fridge] = extract_imu(fridge_data[fridge])
+        fridge_data[fridge] = preprocess(fridge_data[fridge][data_columns])
+
+        try:
+            X_new = vectorize(fridge_data[fridge].values, window_length=50)
+            y_new = np.ones(X_new.shape[0]) * fridge
+            X = np.concatenate((X, X_new), axis=0)
+            y = np.concatenate((y, y_new))
+        except NameError:
+            X = vectorize(fridge_data[fridge].values, window_length=50)
+            y = np.ones(X.shape[0]) * fridge
+
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3)
+    classifier = GaussianNB()
+    classifier.fit(X_train, y_train)
+
+    y_pred = classifier.predict(X_test)
+    score = accuracy_score(y_true=y_test, y_pred=y_pred)
+
+    print("Accuracy of Naive Bayes: {:.4f}".format(score))
+
 
 if __name__ == '__main__':
     main()
