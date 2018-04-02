@@ -68,13 +68,13 @@ def preprocess(df):
     if 'mag_x' in df.columns:
         df[['mag_x', 'mag_y', 'mag_z']] = df[['mag_x', 'mag_y', 'mag_z']].fillna(0)
 
-    df = filter_by_movement(df, '10s', 5)
-
     return df
 
 
-def vectorize(data, window_length):
+def vectorize_and_filter(data, window_length):
     """Window values in data and concatenate signal to make vectors"""
+    data = _filter(data, 5)
+    print("=== Vectorizing data ===")
     vectors = np.ndarray(
         shape=(data.shape[0] - window_length, data.shape[1] * window_length)
         )
@@ -85,11 +85,14 @@ def vectorize(data, window_length):
     return vectors
 
 
-def filter_by_movement(data_df, window_length, threshold):
-    rolling_mean = data_df.rolling(window_length).mean()
-
-    data_df = data_df.drop(data_df.where(rolling_mean['accel_x'] < threshold))
-    return data_df
+def _filter(data, threshold):
+    print("=== Removing data with little movement ===")
+    del_indices = []
+    for i in range(data.shape[0]):
+        if data[i][1].mean() < threshold:
+            del_indices.append(i)
+    data = np.delete(data, del_indices, axis=0)
+    return data
 
 
 def print_confusion_matrix(y_true, y_pred, labels=None):
@@ -162,12 +165,12 @@ def main():
         fridge_data[fridge] = preprocess(fridge_data[fridge][data_columns])
 
         try:
-            X_new = vectorize(fridge_data[fridge].values, window_length=50)
+            X_new = vectorize_and_filter(fridge_data[fridge].values, window_length=50)
             y_new = np.ones(X_new.shape[0]) * fridge
             X = np.concatenate((X, X_new), axis=0)
             y = np.concatenate((y, y_new))
         except NameError:
-            X = vectorize(fridge_data[fridge].values, window_length=50)
+            X = vectorize_and_filter(fridge_data[fridge].values, window_length=50)
             y = np.ones(X.shape[0]) * fridge
 
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3)
