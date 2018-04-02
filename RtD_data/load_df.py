@@ -68,6 +68,8 @@ def preprocess(df):
     if 'mag_x' in df.columns:
         df[['mag_x', 'mag_y', 'mag_z']] = df[['mag_x', 'mag_y', 'mag_z']].fillna(0)
 
+    df = filter_by_movement(df, '10s', 5)
+
     return df
 
 
@@ -81,6 +83,21 @@ def vectorize(data, window_length):
         vectors[i] = vector
 
     return vectors
+
+
+def filter_by_movement(data_df, window_length, threshold):
+    rolling_mean = data_df.rolling(window_length).mean()
+
+    data_df = data_df.drop(data_df.where(rolling_mean['accel_x'] < threshold))
+    return data_df
+
+
+def print_confusion_matrix(y_true, y_pred, labels=None):
+    cf = confusion_matrix(y_true, y_pred)
+    if labels:
+        pred_labels = ['Predicted ' + l for l in labels]
+    df = pd.DataFrame(cf, index=labels, columns=pred_labels)
+    print(df)
 
 
 def group_by_event(device_df):
@@ -125,7 +142,7 @@ def main():
     }
 
     data_columns = [
-        'temperature',
+        'humidity',
         'accel_x',
         'accel_y',
         'accel_z',
@@ -161,6 +178,9 @@ def main():
     score = accuracy_score(y_true=y_test, y_pred=y_pred)
 
     print("Accuracy of Naive Bayes: {:.4f}".format(score))
+
+    print("Confusion matrix:")
+    print_confusion_matrix(y_test, y_pred, ["Home 1", "Home 2", "Home 3"])
 
 
 if __name__ == '__main__':
