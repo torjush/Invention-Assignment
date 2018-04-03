@@ -62,9 +62,8 @@ def preprocess(df):
     return df
 
 
-def vectorize_and_filter(data, window_length):
+def vectorize_and_filter(data, filter_threshold, window_length):
     """Window values in data and concatenate signal to make vectors"""
-    threshold = 10
     print("=== Vectorizing data ===")
 
     # setup toolbar
@@ -79,7 +78,7 @@ def vectorize_and_filter(data, window_length):
             sys.stdout.flush()
 
         # Filter on movement data
-        if np.abs(data[i:i + window_length][1].mean()) > threshold:
+        if np.abs(data[i:i + window_length][1].mean()) > filter_threshold:
             indices.append(i)
 
     vectors = np.ndarray(shape=(len(indices), data.shape[1] * window_length))
@@ -89,19 +88,19 @@ def vectorize_and_filter(data, window_length):
     return vectors
 
 
-def prepare_data(devices, data_columns):
+def prepare_data(devices, filter_threshold, window_length, data_columns):
     processed = {}
     for device in devices:
         processed[device] = extract_imu(devices[device])
         processed[device] = preprocess(processed[device][data_columns])
 
         try:
-            X_new = vectorize_and_filter(processed[device].values, window_length=50)
+            X_new = vectorize_and_filter(processed[device].values, filter_threshold, window_length=window_length)
             y_new = np.ones(X_new.shape[0]) * device
             X = np.concatenate((X, X_new), axis=0)
             y = np.concatenate((y, y_new))
         except NameError:
-            X = vectorize_and_filter(processed[device].values, window_length=50)
+            X = vectorize_and_filter(processed[device].values, filter_threshold, window_length=window_length)
             y = np.ones(X.shape[0]) * device
 
     return X, y
@@ -118,9 +117,13 @@ def print_confusion_matrix(y_true, y_pred, labels=None):
 
 
 def grid_search_data_fields(devices, data_column_matrix):
-    for data_columns in data_column_matrix:
-        X, y = prepare_data(devices, data_columns)
-        k_fold(X, y)
+    filter_thresholds = [1, 5, 10, 20]
+    window_lengths = [10, 20, 50, 100]
+    for filter_threshold in filter_thresholds:
+        for window_length in window_lengths:
+            for data_columns in data_column_matrix:
+                X, y = prepare_data(devices, filter_threshold, window_length, data_columns)
+                k_fold(X, y)
 
 
 def k_fold(X, y):
