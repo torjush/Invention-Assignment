@@ -1,3 +1,4 @@
+from collections import deque
 import numpy as np
 import pandas as pd
 pd.options.mode.chained_assignment = None
@@ -109,18 +110,21 @@ def group_by_event(device_df):
     """
     groups = []
     start_time = None
+    rolling_rows = deque(maxlen=10)
 
     for timestamp, values in device_df.iterrows():
+        rolling_rows.append(values.isna().all())
         # end group creation
-        if start_time is not None and values.isna().all():
+        if start_time is not None and all(rolling_rows):
             end_time = timestamp
             event = device_df[start_time:end_time]
-            print(event)
-            start_time = None
+            event = event.dropna(how='all')
             groups.append(event)
 
+            start_time = None
+
         # start group creation
-        elif start_time is None and not values.isna().all():
+        elif start_time is None and not all(rolling_rows):
             start_time = timestamp
 
     return groups
@@ -189,10 +193,9 @@ def main():
     rope = rope[data_columns[1:]]
 
     events = group_by_event(rope)
-    print events
     print "Number of events:", len(events)
 
-    X = vectorize_and_filter(rope.values, window_length=50)
+    #X = vectorize_and_filter(rope.values, window_length=50)
 
     k_means = KMeans(2)
     k_means.fit(X)
