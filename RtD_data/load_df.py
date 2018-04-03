@@ -6,7 +6,7 @@ import sys
 import glob
 import readInJson
 from sklearn.naive_bayes import GaussianNB
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import train_test_split, KFold
 from sklearn.metrics import accuracy_score, confusion_matrix
 
 
@@ -103,8 +103,7 @@ def prepare_data(devices, data_columns):
             X = vectorize_and_filter(processed[device].values, window_length=50)
             y = np.ones(X.shape[0]) * device
 
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3)
-    return X_train, X_test, y_train, y_test
+    return X, y
 
 
 def print_confusion_matrix(y_true, y_pred, labels=None):
@@ -119,20 +118,27 @@ def print_confusion_matrix(y_true, y_pred, labels=None):
 
 def grid_search_data_fields(devices, data_column_matrix):
     for data_columns in data_column_matrix:
-        X_train, X_test, y_train, y_test = prepare_data(devices, data_columns)
+        X, y = prepare_data(devices, data_columns)
+        k_fold(X, y)
+
+
+def k_fold(X, y):
+    kf = KFold(n_splits=5, shuffle=True)
+
+    avg = []
+
+    for train_index, test_index in kf.split(X, y):
+        X_train, X_test = X[train_index], X[test_index]
+        y_train, y_test = y[train_index], y[test_index]
         classifier = GaussianNB()
         classifier.fit(X_train, y_train)
 
         y_pred = classifier.predict(X_test)
         score = accuracy_score(y_true=y_test, y_pred=y_pred)
+        avg.append(score)
 
-        print("=== Training naive bayes classifier on the following data ===")
-        print("=== " + ", ".join(data_columns) + " ===")
-
-        print("Accuracy: {:.4f}".format(score))
-
-        print("Confusion matrix:")
-        print_confusion_matrix(y_test, y_pred, ["Home 1", "Home 2", "Home 3"])
+    score = sum(avg) / len(avg)
+    print("Accuracy of Naive Bayes: {:.4f}".format(score))
 
 
 def main():
@@ -182,12 +188,13 @@ def main():
 
     ]
 
-    fridge_data = {
-        1: get_device_data(df, devices['fridge_1']),
-        2: get_device_data(df, devices['fridge_2']),
-        3: get_device_data(df, devices['fridge_3'])
+    chair_data = {
+        1: get_device_data(df, devices['chair_1']),
+        2: get_device_data(df, devices['chair_2']),
+        3: get_device_data(df, devices['chair_3'])
     }
-    grid_search_data_fields(fridge_data, data_column_matrix)
+
+    grid_search_data_fields(chair_data, data_column_matrix)
 
 
 if __name__ == '__main__':
