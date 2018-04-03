@@ -31,24 +31,13 @@ def get_device_data(df, device_id):
     return device_df
 
 
-def threshold_data(device_df, keep_values, window_length='10s', threshold=2):
-    """Returns windowed imu data from device_df,
-    getting rid of NaN values, as these only occur when
-    the environment measurements are out of sync with imu.
-    If threshold is set, only windows with this number or
-    more data points are returned"""
-    imu_data = device_df[keep_values].dropna(axis=0, how='all')
-    windowed_imu = imu_data.rolling(window_length)
-    imu_data = imu_data[windowed_imu.count() > threshold]
-    return imu_data
-
-
 def extract_imu(device_df):
-    device_df[['gyro_x', 'gyro_y', 'gyro_z']] = device_df[['x', 'y', 'z']].where(device_df['event'] == 'gyro')
-    device_df[['accel_x', 'accel_y', 'accel_z']] = device_df[['x', 'y', 'z']].where(device_df['event'] == 'accel')
-    device_df[['mag_x', 'mag_y', 'mag_z']] = device_df[['x', 'y', 'z']].where(device_df['event'] == 'mag')
+    if {'x', 'y', 'z'}.issubset(device_df.columns):
+        device_df[['gyro_x', 'gyro_y', 'gyro_z']] = device_df[['x', 'y', 'z']].where(device_df['event'] == 'gyro')
+        device_df[['accel_x', 'accel_y', 'accel_z']] = device_df[['x', 'y', 'z']].where(device_df['event'] == 'accel')
+        device_df[['mag_x', 'mag_y', 'mag_z']] = device_df[['x', 'y', 'z']].where(device_df['event'] == 'mag')
 
-    device_df.drop(['x', 'y', 'z'], inplace=True)
+        device_df.drop(['x', 'y', 'z'], inplace=True)
     return device_df
 
 
@@ -73,7 +62,7 @@ def preprocess(df):
 
 def vectorize_and_filter(data, window_length):
     """Window values in data and concatenate signal to make vectors"""
-    data = _filter(data, 5)
+    data = _filter(data, 2)
     print("=== Vectorizing data ===")
     vectors = np.ndarray(
         shape=(data.shape[0] - window_length, data.shape[1] * window_length)
@@ -95,6 +84,25 @@ def _filter(data, threshold):
     return data
 
 
+def prepare_data(devices, data_columns):
+    processed = {}
+    for i, device in enumerate(devices):
+        processed[device] = extract_imu(devices[device])
+        processed[device] = preprocess(processed[device][data_columns])
+
+        try:
+            X_new = vectorize_and_filter(processed[device].values, window_length=50)
+            y_new = np.ones(X_new.shape[0]) * device
+            X = np.concatenate((X, X_new), axis=0)
+            y = np.concatenate((y, y_new))
+        except NameError:
+            X = vectorize_and_filter(processed[device].values, window_length=50)
+            y = np.ones(X.shape[0]) * device
+
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3)
+    return X_train, X_test, y_train, y_test
+
+
 def print_confusion_matrix(y_true, y_pred, labels=None):
     cf = confusion_matrix(y_true, y_pred)
     if labels:
@@ -103,27 +111,22 @@ def print_confusion_matrix(y_true, y_pred, labels=None):
     print(df)
 
 
-def group_by_event(device_df):
-    """Returns a list of groups
-    """
-    groups = []
+def grid_search_data_fields(devices, data_column_matrix):
+    for data_columns in data_column_matrix:
+        X_train, X_test, y_train, y_test = prepare_data(devices, data_columns)
+        classifier = GaussianNB()
+        classifier.fit(X_train, y_train)
 
-    start_time = None
+        y_pred = classifier.predict(X_test)
+        score = accuracy_score(y_true=y_test, y_pred=y_pred)
 
-    for timestamp, values in device_df.iterrows():
-        # end group creation
-        if start_time is not None and values.isna().all():
-            end_time = timestamp
-            event = device_df[start_time:end_time]
-            event = event.dropna()
-            groups.append(event)
-            start_time = None
+        print("=== Training naive bayes classifier on the following data ===")
+        print("=== " + ", ".join(data_columns) + " ===")
 
-        # start group creation
-        elif start_time is None and not values.isna().all():
-            start_time = timestamp
+        print("Accuracy: {:.4f}".format(score))
 
-    return groups
+        print("Confusion matrix:")
+        print_confusion_matrix(y_test, y_pred, ["Home 1", "Home 2", "Home 3"])
 
 
 def main():
@@ -144,14 +147,33 @@ def main():
         'Remote Control': '247189ea0782'
     }
 
-    data_columns = [
-        'humidity',
-        'accel_x',
-        'accel_y',
-        'accel_z',
-        'gyro_x',
-        'gyro_y',
-        'gyro_z',
+    data_column_matrix = [
+        ['humidity',
+         'accel_x',
+         'accel_y',
+         'accel_z',
+         'gyro_x',
+         'gyro_y',
+         'gyro_z'],
+        ['temperature',
+         'accel_x',
+         'accel_y',
+         'accel_z',
+         'gyro_x',
+         'gyro_y',
+         'gyro_z'],
+        ['lux',
+         'accel_x',
+         'accel_y',
+         'accel_z',
+         'gyro_x',
+         'gyro_y',
+         'gyro_z'],
+        ['lux',
+         'gyro_x',
+         'gyro_y',
+         'gyro_z']
+
     ]
 
     fridge_data = {
@@ -159,31 +181,7 @@ def main():
         2: get_device_data(df, devices['fridge_2']),
         3: get_device_data(df, devices['fridge_3'])
     }
-
-    for i, fridge in enumerate(fridge_data):
-        fridge_data[fridge] = extract_imu(fridge_data[fridge])
-        fridge_data[fridge] = preprocess(fridge_data[fridge][data_columns])
-
-        try:
-            X_new = vectorize_and_filter(fridge_data[fridge].values, window_length=50)
-            y_new = np.ones(X_new.shape[0]) * fridge
-            X = np.concatenate((X, X_new), axis=0)
-            y = np.concatenate((y, y_new))
-        except NameError:
-            X = vectorize_and_filter(fridge_data[fridge].values, window_length=50)
-            y = np.ones(X.shape[0]) * fridge
-
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3)
-    classifier = GaussianNB()
-    classifier.fit(X_train, y_train)
-
-    y_pred = classifier.predict(X_test)
-    score = accuracy_score(y_true=y_test, y_pred=y_pred)
-
-    print("Accuracy of Naive Bayes: {:.4f}".format(score))
-
-    print("Confusion matrix:")
-    print_confusion_matrix(y_test, y_pred, ["Home 1", "Home 2", "Home 3"])
+    grid_search_data_fields(fridge_data, data_column_matrix)
 
 
 if __name__ == '__main__':
