@@ -7,6 +7,7 @@ import readInJson
 from sklearn.naive_bayes import GaussianNB
 from sklearn.model_selection import train_test_split, KFold
 from sklearn.metrics import accuracy_score, confusion_matrix
+from sklearn.cluster import KMeans
 
 
 def load_all_data(folder, file_names):
@@ -164,7 +165,8 @@ def main():
         'chair_1': '247189e76106',
         'chair_2': '247189e98d83',
         'chair_3': '247189e61802',
-        'Remote Control': '247189ea0782'
+        'Remote Control': '247189ea0782',
+        'Rope on Stairs': '247189e74381',
     }
 
     data_columns = [
@@ -183,20 +185,19 @@ def main():
         3: get_device_data(df, devices['fridge_3'])
     }
 
-    for i, fridge in enumerate(fridge_data):
-        fridge_data[fridge] = extract_imu(fridge_data[fridge])
-        fridge_data[fridge] = preprocess(fridge_data[fridge][data_columns])
+    rope = get_device_data(df, devices['Rope on Stairs'])
+    rope = extract_imu(rope)
+    rope = preprocess(rope[data_columns[1:]])
 
-        try:
-            X_new = vectorize_and_filter(fridge_data[fridge].values, window_length=50)
-            y_new = np.ones(X_new.shape[0]) * fridge
-            X = np.concatenate((X, X_new), axis=0)
-            y = np.concatenate((y, y_new))
-        except NameError:
-            X = vectorize_and_filter(fridge_data[fridge].values, window_length=50)
-            y = np.ones(X.shape[0]) * fridge
+    X = vectorize_and_filter(rope.values, window_length=50)
 
-    k_fold(X, y)
+    k_means = KMeans(2)
+    k_means.fit(X)
+
+
+    vectors = k_means.cluster_centers_
+    labels = k_means.labels_
+    print labels
 
 
 
