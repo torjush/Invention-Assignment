@@ -86,7 +86,7 @@ def _filter(data, threshold):
 
 def prepare_data(devices, data_columns):
     processed = {}
-    for i, device in enumerate(devices):
+    for device in devices:
         processed[device] = extract_imu(devices[device])
         processed[device] = preprocess(processed[device][data_columns])
 
