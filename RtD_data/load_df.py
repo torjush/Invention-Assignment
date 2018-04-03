@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+pd.options.mode.chained_assignment = None
 import matplotlib.pyplot as plt
 import os
 import glob
@@ -49,8 +50,7 @@ def extract_imu(device_df):
     device_df[['accel_x', 'accel_y', 'accel_z']] = device_df[['x', 'y', 'z']].where(device_df['event'] == 'accel')
     device_df[['mag_x', 'mag_y', 'mag_z']] = device_df[['x', 'y', 'z']].where(device_df['event'] == 'mag')
 
-    device_df.drop(['x', 'y', 'z'], inplace=True)
-    return device_df
+    return device_df.drop(['x', 'y', 'z'], axis=1)
 
 
 def preprocess(df):
@@ -90,7 +90,7 @@ def _filter(data, threshold):
     print("=== Removing data with little movement ===")
     del_indices = []
     for i in range(data.shape[0]):
-        if data[i][1].mean() < threshold:
+        if data[i][1] < threshold:
             del_indices.append(i)
     data = np.delete(data, del_indices, axis=0)
     return data
@@ -108,7 +108,6 @@ def group_by_event(device_df):
     """Returns a list of groups
     """
     groups = []
-
     start_time = None
 
     for timestamp, values in device_df.iterrows():
@@ -116,9 +115,9 @@ def group_by_event(device_df):
         if start_time is not None and values.isna().all():
             end_time = timestamp
             event = device_df[start_time:end_time]
-            event = event.dropna()
-            groups.append(event)
+            print(event)
             start_time = None
+            groups.append(event)
 
         # start group creation
         elif start_time is None and not values.isna().all():
@@ -187,7 +186,11 @@ def main():
 
     rope = get_device_data(df, devices['Rope on Stairs'])
     rope = extract_imu(rope)
-    rope = preprocess(rope[data_columns[1:]])
+    rope = rope[data_columns[1:]]
+
+    events = group_by_event(rope)
+    print events
+    print "Number of events:", len(events)
 
     X = vectorize_and_filter(rope.values, window_length=50)
 
