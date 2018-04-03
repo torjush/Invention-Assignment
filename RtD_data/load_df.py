@@ -5,7 +5,7 @@ import os
 import glob
 import readInJson
 from sklearn.naive_bayes import GaussianNB
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import train_test_split, KFold
 from sklearn.metrics import accuracy_score, confusion_matrix
 
 
@@ -126,6 +126,29 @@ def group_by_event(device_df):
     return groups
 
 
+def k_fold(X, y):
+    kf = KFold(n_splits=10, shuffle=True)
+
+    avg = []
+
+    for train_index, test_index in kf.split(X, y):
+        X_train, X_test = X[train_index], X[test_index]
+        y_train, y_test = y[train_index], y[test_index]
+        classifier = GaussianNB()
+        classifier.fit(X_train, y_train)
+
+        y_pred = classifier.predict(X_test)
+        score = accuracy_score(y_true=y_test, y_pred=y_pred)
+        avg.append(score)
+        print("Accuracy:", score)
+        print("Confusion matrix:")
+        print_confusion_matrix(y_test, y_pred, ["Home 1", "Home 2", "Home 3"])
+        print("\n\n")
+
+    score = sum(avg) / len(avg)
+    print("Accuracy of Naive Bayes: {:.4f}".format(score))
+
+
 def main():
     data_directory = '/field/'
 
@@ -173,17 +196,8 @@ def main():
             X = vectorize_and_filter(fridge_data[fridge].values, window_length=50)
             y = np.ones(X.shape[0]) * fridge
 
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3)
-    classifier = GaussianNB()
-    classifier.fit(X_train, y_train)
+    k_fold(X, y)
 
-    y_pred = classifier.predict(X_test)
-    score = accuracy_score(y_true=y_test, y_pred=y_pred)
-
-    print("Accuracy of Naive Bayes: {:.4f}".format(score))
-
-    print("Confusion matrix:")
-    print_confusion_matrix(y_test, y_pred, ["Home 1", "Home 2", "Home 3"])
 
 
 if __name__ == '__main__':
