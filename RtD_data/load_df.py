@@ -2,6 +2,7 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import os
+import sys
 import glob
 import readInJson
 from sklearn.naive_bayes import GaussianNB
@@ -62,23 +63,41 @@ def preprocess(df):
 
 def vectorize_and_filter(data, window_length):
     """Window values in data and concatenate signal to make vectors"""
-    data = _filter(data, 2)
+    threshold = 2
     print("=== Vectorizing data ===")
-    vectors = np.ndarray(
-        shape=(data.shape[0] - window_length, data.shape[1] * window_length)
-        )
-    for i in range(data.shape[0] - window_length):
-        vector = data[i:i + window_length, :].reshape(data.shape[1] * window_length)
-        vectors[i] = vector
 
+    # setup toolbar
+    toolbar_width = 10
+    sys.stdout.write("[%s]" % (" " * toolbar_width))
+    sys.stdout.flush()
+    sys.stdout.write("\b" * (toolbar_width+1))
+    indices = []
+    for i in range(data.shape[0] - window_length):
+        if (i + 1) % ((data.shape[0] - window_length) // toolbar_width) == 0:
+            sys.stdout.write("=")
+            sys.stdout.flush()
+        # Filter on movement data
+        if np.abs(data[i:i + window_length][1].mean()) > threshold:
+        #     try:
+        #         vectors = np.vstack(
+        #             (vectors, data[i:i + window_length, :].reshape(data.shape[1] * window_length))
+        #         )
+        #     except NameError:
+        #         vectors = data[i:i + window_length, :].reshape(data.shape[1] * window_length)
+            indices.append(i)
+
+    vectors = np.ndarray(shape=(len(indices), data.shape[1] * window_length))
+    for i, index in enumerate(indices):
+        vectors[i] = data[index:index + window_length, :].reshape(data.shape[1] * window_length)
+    sys.stdout.write('\n')
     return vectors
 
 
-def _filter(data, threshold):
+def _filter(data, window_length, threshold):
     print("=== Removing data with little movement ===")
     del_indices = []
-    for i in range(data.shape[0]):
-        if data[i][1].mean() < threshold:
+    for i in range(data.shape[0] - window_length):
+        if np.abs(data[i:i + window_length][1].mean()) < threshold:
             del_indices.append(i)
     data = np.delete(data, del_indices, axis=0)
     return data
