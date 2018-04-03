@@ -110,7 +110,7 @@ def group_by_event(device_df):
     """
     groups = []
     start_time = None
-    rolling_rows = deque(maxlen=10)
+    rolling_rows = deque(maxlen=3)
 
     for timestamp, values in device_df.iterrows():
         rolling_rows.append(values.isna().all())
@@ -173,7 +173,6 @@ def main():
     }
 
     data_columns = [
-        'humidity',
         'accel_x',
         'accel_y',
         'accel_z',
@@ -182,23 +181,31 @@ def main():
         'gyro_z',
     ]
 
-    fridge_data = {
-        1: get_device_data(df, devices['fridge_1']),
-        2: get_device_data(df, devices['fridge_2']),
-        3: get_device_data(df, devices['fridge_3'])
-    }
-
     rope = get_device_data(df, devices['Rope on Stairs'])
     rope = extract_imu(rope)
-    rope = rope[data_columns[1:]]
+    rope = rope[data_columns]
 
     events = group_by_event(rope)
     print "Number of events:", len(events)
+    print "Avg length:", sum([len(event) for event in events])/len(events)
 
     #X = vectorize_and_filter(rope.values, window_length=50)
 
-    k_means = KMeans(2)
-    k_means.fit(X)
+    features = np.ndarray(shape=(len(events),len(data_columns)*50))
+    for j, event in enumerate(events):
+        feature = np.empty(len(data_columns)*50)
+        for i, column in enumerate(data_columns):
+            df = event[[column]].dropna() # because we only look at one column, we have NaN's
+            df = df.resample('200ms').mean().fillna(method='bfill') # resample
+            vals = np.hstack(df.values) # df seems to give a list of lists
+            vals = np.multiply(np.hamming(len(vals)), vals) # hamming window
+            transformed = np.fft.fft(vals, n=50) # take the fft with 50 values
+            feature[i*50:i*50+50] = np.abs(transformed)
+        features[j] = feature
+
+
+    k_means = KMeans(3)
+    k_means.fit(features)
 
 
     vectors = k_means.cluster_centers_
