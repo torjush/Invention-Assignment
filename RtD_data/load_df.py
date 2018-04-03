@@ -63,7 +63,7 @@ def preprocess(df):
 
 def vectorize_and_filter(data, window_length):
     """Window values in data and concatenate signal to make vectors"""
-    threshold = 2
+    threshold = 10
     print("=== Vectorizing data ===")
 
     # setup toolbar
@@ -76,14 +76,9 @@ def vectorize_and_filter(data, window_length):
         if (i + 1) % ((data.shape[0] - window_length) // toolbar_width) == 0:
             sys.stdout.write("=")
             sys.stdout.flush()
+
         # Filter on movement data
         if np.abs(data[i:i + window_length][1].mean()) > threshold:
-        #     try:
-        #         vectors = np.vstack(
-        #             (vectors, data[i:i + window_length, :].reshape(data.shape[1] * window_length))
-        #         )
-        #     except NameError:
-        #         vectors = data[i:i + window_length, :].reshape(data.shape[1] * window_length)
             indices.append(i)
 
     vectors = np.ndarray(shape=(len(indices), data.shape[1] * window_length))
@@ -91,16 +86,6 @@ def vectorize_and_filter(data, window_length):
         vectors[i] = data[index:index + window_length, :].reshape(data.shape[1] * window_length)
     sys.stdout.write('\n')
     return vectors
-
-
-def _filter(data, window_length, threshold):
-    print("=== Removing data with little movement ===")
-    del_indices = []
-    for i in range(data.shape[0] - window_length):
-        if np.abs(data[i:i + window_length][1].mean()) < threshold:
-            del_indices.append(i)
-    data = np.delete(data, del_indices, axis=0)
-    return data
 
 
 def prepare_data(devices, data_columns):
@@ -126,7 +111,9 @@ def print_confusion_matrix(y_true, y_pred, labels=None):
     cf = confusion_matrix(y_true, y_pred)
     if labels:
         pred_labels = ['Predicted ' + l for l in labels]
-    df = pd.DataFrame(cf, index=labels, columns=pred_labels)
+        df = pd.DataFrame(cf, index=labels, columns=pred_labels)
+    else:
+        df = pd.DataFrame(cf)
     print(df)
 
 
