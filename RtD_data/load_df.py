@@ -1,23 +1,25 @@
 import numpy as np
 import pandas as pd
-pd.options.mode.chained_assignment = None
 import matplotlib.pyplot as plt
 import os
 import sys
 import glob
 import readInJson
 from sklearn.naive_bayes import GaussianNB
-from sklearn.model_selection import train_test_split, KFold
+from sklearn.model_selection import KFold
 from sklearn.metrics import accuracy_score, confusion_matrix
+
+
+pd.options.mode.chained_assignment = None
 
 
 def load_all_data(folder, file_names):
     all_files = glob.glob(folder + file_names)
 
-    print('=== Loading data ===')
+    print('Loading data')
     all_data = readInJson.load_json(all_files)
 
-    print('=== All data loaded, concatenating data frames ===')
+    print('All data loaded, concatenating data frames')
     df = pd.concat(all_data)
     df = readInJson.extract_timestamp_TI(df)
     df.sort_values('timestamp', inplace=True)
@@ -70,19 +72,8 @@ def preprocess(df):
 
 def vectorize_and_filter(data, filter_threshold, window_length):
     """Window values in data and concatenate signal to make vectors"""
-    print("=== Vectorizing data ===")
-
-    # setup toolbar
-    toolbar_width = 10
-    sys.stdout.write("[%s]" % (" " * toolbar_width))
-    sys.stdout.flush()
-    sys.stdout.write("\b" * (toolbar_width+1))
     indices = []
     for i in range(data.shape[0] - window_length):
-        if (i + 1) % ((data.shape[0] - window_length) // toolbar_width) == 0:
-            sys.stdout.write("=")
-            sys.stdout.flush()
-
         # Filter on movement data
         if np.abs(data[i:i + window_length][1].mean()) > filter_threshold:
             indices.append(i)
@@ -91,15 +82,13 @@ def vectorize_and_filter(data, filter_threshold, window_length):
     for i, index in enumerate(indices):
         window = data[index:index + window_length, :]
         m = window.mean(axis=0)
-        diff = np.max(window, axis=0) - np.min(window, axis=0)
 
         window = (window - m)
         vectors[i] = window.reshape(data.shape[1] * window_length)
-    sys.stdout.write('\n')
     return vectors
 
 
-def prepare_data(devices, filter_threshold, window_length, data_columns):
+def prepare_data(devices, data_columns, filter_threshold, window_length):
     processed = {}
     for device in devices:
         processed[device] = extract_imu(devices[device])
@@ -127,13 +116,27 @@ def print_confusion_matrix(y_true, y_pred, labels=None):
     print(df)
 
 
-def grid_search_data_fields(devices, filter_thresholds, window_lengths, data_column_matrix):
-    scores = np.ndarray(shape=(len(filter_thresholds), len(window_lengths), len(data_column_matrix)))
-    for i, filter_threshold in enumerate(filter_thresholds):
-        for j, window_length in enumerate(window_lengths):
-            for k, data_columns in enumerate(data_column_matrix):
-                X, y = prepare_data(devices, filter_threshold, window_length, data_columns)
+def grid_search_data_fields(devices, data_column_matrix, filter_thresholds, window_lengths):
+    scores = np.ndarray(shape=(len(data_column_matrix), len(filter_thresholds), len(window_lengths)))
+
+    print("Running Grid Search:")
+    # setup loading bar
+    toolbar_width = 32
+    sys.stdout.write("[%s]" % (" " * toolbar_width))
+    sys.stdout.flush()
+    sys.stdout.write("\b" * (toolbar_width+1))
+
+    counter = 1
+    for i, data_columns in enumerate(data_column_matrix):
+        for j, filter_threshold in enumerate(filter_thresholds):
+            for k, window_length in enumerate(window_lengths):
+                if counter % ((len(data_column_matrix) * len(filter_thresholds) * len(window_lengths)) // toolbar_width) == 0:
+                    sys.stdout.write("=")
+                    sys.stdout.flush()
+                X, y = prepare_data(devices, data_columns, filter_threshold, window_length)
                 scores[i][j][k] = k_fold(X, y)
+                counter += 1
+    sys.stdout.write('\n')
 
     return scores
 
@@ -154,8 +157,24 @@ def k_fold(X, y):
         avg.append(score)
 
     score = sum(avg) / len(avg)
-    print("Accuracy of Naive Bayes: {:.4f}".format(score))
     return score
+
+
+def print_matrix(mat, xlabels=None, ylabels=None):
+    if xlabels:
+        sys.stdout.write("\t")
+        for label in xlabels:
+            sys.stdout.write("|" + str(label) + "\t")
+        sys.stdout.write("|\n")
+    for i in range(mat.shape[0]):
+        if ylabels:
+            sys.stdout.write(str(ylabels[i]) + "\t")
+        for j in range(mat.shape[1]):
+            if mat[i][j] == np.max(mat):
+                sys.stdout.write("|\033[1;36m{:.4f}\033[0m\t".format(mat[i][j]))
+            else:
+                sys.stdout.write("|{:.4f}\t".format(mat[i][j]))
+        sys.stdout.write("|\n")
 
 
 def main():
@@ -182,7 +201,6 @@ def main():
         3: get_device_data(df, devices['fridge_3'])
     }
 
-
     filter_thresholds = [1, 5, 10, 20]
     window_lengths = [10, 20, 50, 100]
 
@@ -200,16 +218,11 @@ def main():
          'gyro_x', 'gyro_y', 'gyro_z']
     ]
 
-    scores = grid_search_data_fields(fridge_data, filter_thresholds, window_lengths, data_column_matrix)
-    print("=== Cross Validation result from training Gaussian Naive Bayes ===")
+    scores = grid_search_data_fields(fridge_data, data_column_matrix, filter_thresholds, window_lengths)
+    print("Cross Validation result from training Gaussian Naive Bayes")
     for i in range(scores.shape[0]):
-        print("=== With filter_threshold: {} ===".format(filter_thresholds[i]))
-        for j in range(scores.shape[1]):
-            print("=== With window_length: {} ===".format(window_lengths[j]))
-            for k in range(scores.shape[2]):
-                print("=== With data columns: ===")
-                print("=== " + ", ".join(data_column_matrix[k]) + " ===")
-                print("Accuracy: {:.4f}".format(scores[i, j, k]))
+        print("With data columns: " + ", ".join(data_column_matrix[i]))
+        print_matrix(scores[i][:][:], window_lengths, filter_thresholds)
 
 
 if __name__ == '__main__':
