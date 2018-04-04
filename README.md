@@ -14,4 +14,4 @@ See conda_env.txt for the complete list of packages used in our anaconda environ
 - Clone this repo.
 - Make sure that your python environment fulfills the requirements from conda_env.txt.
 - Make sure that you are running python from the Invention-Assignment directory.
-- Run with `python invention.py [chairs|fridges]
+- Run with `python invention.py [chairs|fridges]`
