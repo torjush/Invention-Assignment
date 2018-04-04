@@ -130,6 +130,7 @@ def group_by_event(device_df):
     return groups
 
 
+<<<<<<< HEAD
 def k_fold(X, y):
     kf = KFold(n_splits=10, shuffle=True)
 
@@ -151,6 +152,21 @@ def k_fold(X, y):
 
     score = sum(avg) / len(avg)
     print("Accuracy of Naive Bayes: {:.4f}".format(score))
+=======
+def plot_objects(objects, df):
+    fig, axes = plt.subplots(nrows=len(objects), sharex=True)
+    i = 0
+    for obj in objects:
+        device = get_device_data(df, obj)
+        data = preprocess_imu(device)
+        print("=== plotting data for {} ===".format(objects[obj]))
+        data.plot(ax=axes[i])
+        axes[i].set_title(objects[obj])
+        i += 1
+
+    plt.show()
+
+>>>>>>> 979e364947d94679a6dafbebf77331bb8b89b7b5
 
 
 def main():
@@ -161,6 +177,7 @@ def main():
 
     df = load_all_data(folder, files)
 
+<<<<<<< HEAD
     devices = {
         'fridge_1': '247189e78180',
         'fridge_2': '247189e61784',
@@ -212,6 +229,33 @@ def main():
     labels = k_means.labels_
     print labels
 
+=======
+    objects01 = {
+        '247189e98685': 'Remote Control',
+        '247189e83001': 'Spider Stick',
+        '247189e72603': 'Garden Door',
+        '247189e78180': 'Fridge',
+        '247189e76106': 'Breakfast Chair',
+        '247189e87d85': 'Tray',
+    }
+    objects02 = {
+        '247189e98d83': 'Chair Pillow',
+        '247189ea0782': 'Remote Control',
+        '247189e74381': 'Rope on Stairs',
+        '247189e64706': 'Kitchen Drawer',
+        '247189e61784': 'Fridge'
+    }
+
+    objects03 = {
+        '247189e61802': 'Kitchen Chair',
+        '247189e61682': 'Fridge',
+        '247189e76c05': 'Remote Control',
+        '247189e88b80': 'Kitchen Cabinet Door',
+        '247189e8e701': 'Knitting Needle',
+        '247189e6c680': 'Tablet'
+    }
+    plot_objects(objects02, df)
+>>>>>>> 979e364947d94679a6dafbebf77331bb8b89b7b5
 
 
 if __name__ == '__main__':
