@@ -53,11 +53,17 @@ def preprocess(df):
     if 'humidity' in df.columns:
         df['humidity'] = df['humidity'].fillna(method='bfill')
     if 'gyro_x' in df.columns:
-        df[['gyro_x', 'gyro_y', 'gyro_z']] = df[['gyro_x', 'gyro_y', 'gyro_z']].fillna(0)
+        tmp = df[['gyro_x', 'gyro_y', 'gyro_z']]
+        tmp = tmp.fillna(0)
+        df[['gyro_x', 'gyro_y', 'gyro_z']] = tmp
     if 'accel_x' in df.columns:
-        df[['accel_x', 'accel_y', 'accel_z']] = df[['accel_x', 'accel_y', 'accel_z']].fillna(0)
+        tmp = df[['accel_x', 'accel_y', 'accel_z']]
+        tmp = tmp.fillna(0)
+        df[['accel_x', 'accel_y', 'accel_z']] = tmp
     if 'mag_x' in df.columns:
-        df[['mag_x', 'mag_y', 'mag_z']] = df[['mag_x', 'mag_y', 'mag_z']].fillna(0)
+        tmp = df[['mag_x', 'mag_y', 'mag_z']]
+        tmp = tmp.fillna(0)
+        df[['mag_x', 'mag_y', 'mag_z']] = tmp
 
     return df
 
@@ -83,7 +89,12 @@ def vectorize_and_filter(data, filter_threshold, window_length):
 
     vectors = np.ndarray(shape=(len(indices), data.shape[1] * window_length))
     for i, index in enumerate(indices):
-        vectors[i] = data[index:index + window_length, :].reshape(data.shape[1] * window_length)
+        window = data[index:index + window_length, :]
+        m = window.mean(axis=0)
+        diff = np.max(window, axis=0) - np.min(window, axis=0)
+
+        window = (window - m)
+        vectors[i] = window.reshape(data.shape[1] * window_length)
     sys.stdout.write('\n')
     return vectors
 
@@ -95,12 +106,12 @@ def prepare_data(devices, filter_threshold, window_length, data_columns):
         processed[device] = preprocess(processed[device][data_columns])
 
         try:
-            X_new = vectorize_and_filter(processed[device].values, filter_threshold, window_length=window_length)
+            X_new = vectorize_and_filter(processed[device].values, filter_threshold, window_length)
             y_new = np.ones(X_new.shape[0]) * device
             X = np.concatenate((X, X_new), axis=0)
             y = np.concatenate((y, y_new))
         except NameError:
-            X = vectorize_and_filter(processed[device].values, filter_threshold, window_length=window_length)
+            X = vectorize_and_filter(processed[device].values, filter_threshold, window_length)
             y = np.ones(X.shape[0]) * device
 
     return X, y
@@ -116,14 +127,15 @@ def print_confusion_matrix(y_true, y_pred, labels=None):
     print(df)
 
 
-def grid_search_data_fields(devices, data_column_matrix):
-    filter_thresholds = [1, 5, 10, 20]
-    window_lengths = [10, 20, 50, 100]
-    for filter_threshold in filter_thresholds:
-        for window_length in window_lengths:
-            for data_columns in data_column_matrix:
+def grid_search_data_fields(devices, filter_thresholds, window_lengths, data_column_matrix):
+    scores = np.ndarray(shape=(len(filter_thresholds), len(window_lengths), len(data_column_matrix)))
+    for i, filter_threshold in enumerate(filter_thresholds):
+        for j, window_length in enumerate(window_lengths):
+            for k, data_columns in enumerate(data_column_matrix):
                 X, y = prepare_data(devices, filter_threshold, window_length, data_columns)
-                k_fold(X, y)
+                scores[i][j][k] = k_fold(X, y)
+
+    return scores
 
 
 def k_fold(X, y):
@@ -143,6 +155,7 @@ def k_fold(X, y):
 
     score = sum(avg) / len(avg)
     print("Accuracy of Naive Bayes: {:.4f}".format(score))
+    return score
 
 
 def main():
@@ -163,42 +176,40 @@ def main():
         'Remote Control': '247189ea0782'
     }
 
-    data_column_matrix = [
-        ['humidity',
-         'accel_x',
-         'accel_y',
-         'accel_z',
-         'gyro_x',
-         'gyro_y',
-         'gyro_z'],
-        ['temperature',
-         'accel_x',
-         'accel_y',
-         'accel_z',
-         'gyro_x',
-         'gyro_y',
-         'gyro_z'],
-        ['lux',
-         'accel_x',
-         'accel_y',
-         'accel_z',
-         'gyro_x',
-         'gyro_y',
-         'gyro_z'],
-        ['lux',
-         'gyro_x',
-         'gyro_y',
-         'gyro_z']
-
-    ]
-
-    chair_data = {
-        1: get_device_data(df, devices['chair_1']),
-        2: get_device_data(df, devices['chair_2']),
-        3: get_device_data(df, devices['chair_3'])
+    fridge_data = {
+        1: get_device_data(df, devices['fridge_1']),
+        2: get_device_data(df, devices['fridge_2']),
+        3: get_device_data(df, devices['fridge_3'])
     }
 
-    grid_search_data_fields(chair_data, data_column_matrix)
+
+    filter_thresholds = [1, 5, 10, 20]
+    window_lengths = [10, 20, 50, 100]
+
+    data_column_matrix = [
+        ['humidity',
+         'accel_x', 'accel_y', 'accel_z',
+         'gyro_x', 'gyro_y', 'gyro_z'],
+        ['temperature',
+         'accel_x', 'accel_y', 'accel_z',
+         'gyro_x', 'gyro_y', 'gyro_z'],
+        ['lux',
+         'accel_x', 'accel_y', 'accel_z',
+         'gyro_x', 'gyro_y', 'gyro_z'],
+        ['lux',
+         'gyro_x', 'gyro_y', 'gyro_z']
+    ]
+
+    scores = grid_search_data_fields(fridge_data, filter_thresholds, window_lengths, data_column_matrix)
+    print("=== Cross Validation result from training Gaussian Naive Bayes ===")
+    for i in range(scores.shape[0]):
+        print("=== With filter_threshold: {} ===".format(filter_thresholds[i]))
+        for j in range(scores.shape[1]):
+            print("=== With window_length: {} ===".format(window_lengths[j]))
+            for k in range(scores.shape[2]):
+                print("=== With data columns: ===")
+                print("=== " + ", ".join(data_column_matrix[k]) + " ===")
+                print("Accuracy: {:.4f}".format(scores[i, j, k]))
 
 
 if __name__ == '__main__':
