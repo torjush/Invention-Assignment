@@ -1,5 +1,6 @@
 """
 Invention Assignment
+Classify homes based on data collected from chairs or fridges
 
 Usage:
   invention.py chairs
@@ -248,7 +249,7 @@ def main(device_name):
     print("Cross Validation result from training Gaussian Naive Bayes")
     for i in range(scores.shape[0]):
         print("With data columns: " + ", ".join(data_column_matrix[i]))
-        print_matrix(scores[i][:][:])
+        print_matrix(scores[i][:][:], window_lengths, filter_thresholds)
 
 
 if __name__ == '__main__':
