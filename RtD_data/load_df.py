@@ -106,43 +106,51 @@ def prepare_data(devices, data_columns, filter_threshold, window_length):
     return X, y
 
 
-def print_confusion_matrix(y_true, y_pred, labels=None):
-    cf = confusion_matrix(y_true, y_pred)
-    if labels:
-        pred_labels = ['Predicted ' + l for l in labels]
-        df = pd.DataFrame(cf, index=labels, columns=pred_labels)
-    else:
-        df = pd.DataFrame(cf)
-    print(df)
-
-
 def grid_search_data_fields(devices, data_column_matrix, filter_thresholds, window_lengths):
+    """Do grid search on all the configurations of data columns
+    (humidity, temperature, acceleration, etc.), the filter_thresholds
+    and the window lengths.
+    """
+    length = len(data_column_matrix) * len(filter_thresholds) * len(window_lengths)
     scores = np.ndarray(shape=(len(data_column_matrix), len(filter_thresholds), len(window_lengths)))
+    printer = print_grid_search(length)
+    next(printer)
 
+    for i, data_columns in enumerate(data_column_matrix):
+        for j, filter_threshold in enumerate(filter_thresholds):
+            for k, window_length in enumerate(window_lengths):
+                next(printer)
+                X, y = prepare_data(devices, data_columns, filter_threshold, window_length)
+                scores[i][j][k] = k_fold(X, y)
+
+    try:
+        next(printer)
+    except StopIteration:
+        pass
+    return scores
+
+
+def print_grid_search(length):
+    """Print a status bar, since grid search can take a while"""
     print("Running Grid Search:")
-    # setup loading bar
     toolbar_width = 32
     sys.stdout.write("[%s]" % (" " * toolbar_width))
     sys.stdout.flush()
     sys.stdout.write("\b" * (toolbar_width+1))
+    yield
 
-    counter = 1
-    for i, data_columns in enumerate(data_column_matrix):
-        for j, filter_threshold in enumerate(filter_thresholds):
-            for k, window_length in enumerate(window_lengths):
-                if counter % ((len(data_column_matrix) * len(filter_thresholds) * len(window_lengths)) // toolbar_width) == 0:
-                    sys.stdout.write("=")
-                    sys.stdout.flush()
-                X, y = prepare_data(devices, data_columns, filter_threshold, window_length)
-                scores[i][j][k] = k_fold(X, y)
-                counter += 1
+    for i in range(1, length+1):
+        if (i % (length // toolbar_width)) == 0:
+            sys.stdout.write("=")
+            sys.stdout.flush()
+        yield
+
     sys.stdout.write('\n')
+    return
 
-    return scores
 
-
-def k_fold(X, y):
-    kf = KFold(n_splits=5, shuffle=True)
+def k_fold(X, y, n_splits=5):
+    kf = KFold(n_splits=n_splits, shuffle=True)
 
     avg = []
 
@@ -222,7 +230,7 @@ def main():
     print("Cross Validation result from training Gaussian Naive Bayes")
     for i in range(scores.shape[0]):
         print("With data columns: " + ", ".join(data_column_matrix[i]))
-        print_matrix(scores[i][:][:], window_lengths, filter_thresholds)
+        print_matrix(scores[i][:][:])
 
 
 if __name__ == '__main__':
