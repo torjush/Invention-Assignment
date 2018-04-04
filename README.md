@@ -8,4 +8,4 @@ Using data from usage of household objects in three different homes, we are tryi
 The data is collected by a TI Sensortag attached to different household objects. All data is contained in field folder in json format. One file for each day.
 
 ### Package dependencies
-See invention.txt for the complete list of packages used in our anaconda environment.
+See conda_env.txt for the complete list of packages used in our anaconda environment.
