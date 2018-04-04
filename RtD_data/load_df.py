@@ -1,3 +1,14 @@
+"""
+Invention Assignment
+
+Usage:
+  invention.py chairs
+  invention.py fridges
+
+Options:
+  -h --help   Show this screen
+"""
+
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -8,6 +19,7 @@ import readInJson
 from sklearn.naive_bayes import GaussianNB
 from sklearn.model_selection import KFold
 from sklearn.metrics import accuracy_score, confusion_matrix
+from docopt import docopt
 
 
 pd.options.mode.chained_assignment = None
@@ -177,7 +189,7 @@ def print_matrix(mat, xlabels=None, ylabels=None):
         sys.stdout.write("|\n")
 
 
-def main():
+def main(device_name):
     data_directory = '/field/'
 
     folder = os.getcwd() + data_directory
@@ -195,12 +207,18 @@ def main():
         'Remote Control': '247189ea0782'
     }
 
-    fridge_data = {
-        1: get_device_data(df, devices['fridge_1']),
-        2: get_device_data(df, devices['fridge_2']),
-        3: get_device_data(df, devices['fridge_3'])
-    }
-
+    if device_name == 'fridges':
+        device_data = {
+            1: get_device_data(df, devices['fridge_1']),
+            2: get_device_data(df, devices['fridge_2']),
+            3: get_device_data(df, devices['fridge_3'])
+        }
+    elif device_name == 'chairs':
+        device_data = {
+            1: get_device_data(df, devices['chair_1']),
+            2: get_device_data(df, devices['chair_2']),
+            3: get_device_data(df, devices['chair_3'])
+        }
     filter_thresholds = [1, 5, 10, 20]
     window_lengths = [10, 20, 50, 100]
 
@@ -218,7 +236,7 @@ def main():
          'gyro_x', 'gyro_y', 'gyro_z']
     ]
 
-    scores = grid_search_data_fields(fridge_data, data_column_matrix, filter_thresholds, window_lengths)
+    scores = grid_search_data_fields(device_data, data_column_matrix, filter_thresholds, window_lengths)
     print("Cross Validation result from training Gaussian Naive Bayes")
     for i in range(scores.shape[0]):
         print("With data columns: " + ", ".join(data_column_matrix[i]))
@@ -226,4 +244,10 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    arguments = docopt(__doc__, version='Invention 1.0')
+    if arguments['chairs']:
+        print("Building home classifier from chair data")
+        main('chairs')
+    elif arguments['fridges']:
+        print("Building home classifier from fridge data")
+        main('fridges')
