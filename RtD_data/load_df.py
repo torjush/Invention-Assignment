@@ -3,6 +3,7 @@ import numpy as np
 import pandas as pd
 pd.options.mode.chained_assignment = None
 import matplotlib.pyplot as plt
+from matplotlib import cm
 import os
 import glob
 import readInJson
@@ -110,7 +111,7 @@ def group_by_event(device_df):
     """
     groups = []
     start_time = None
-    rolling_rows = deque(maxlen=3)
+    rolling_rows = deque(maxlen=10)
 
     for timestamp, values in device_df.iterrows():
         rolling_rows.append(values.isna().all())
@@ -119,9 +120,9 @@ def group_by_event(device_df):
             end_time = timestamp
             event = device_df[start_time:end_time]
             event = event.dropna(how='all')
-            groups.append(event)
-
             start_time = None
+            if len(event) > 60:
+                groups.append(event)
 
         # start group creation
         elif start_time is None and not all(rolling_rows):
@@ -130,7 +131,6 @@ def group_by_event(device_df):
     return groups
 
 
-<<<<<<< HEAD
 def k_fold(X, y):
     kf = KFold(n_splits=10, shuffle=True)
 
@@ -152,7 +152,8 @@ def k_fold(X, y):
 
     score = sum(avg) / len(avg)
     print("Accuracy of Naive Bayes: {:.4f}".format(score))
-=======
+
+
 def plot_objects(objects, df):
     fig, axes = plt.subplots(nrows=len(objects), sharex=True)
     i = 0
@@ -166,8 +167,6 @@ def plot_objects(objects, df):
 
     plt.show()
 
->>>>>>> 979e364947d94679a6dafbebf77331bb8b89b7b5
-
 
 def main():
     data_directory = '/field/'
@@ -177,7 +176,6 @@ def main():
 
     df = load_all_data(folder, files)
 
-<<<<<<< HEAD
     devices = {
         'fridge_1': '247189e78180',
         'fridge_2': '247189e61784',
@@ -205,6 +203,8 @@ def main():
     events = group_by_event(rope)
     print "Number of events:", len(events)
     print "Avg length:", sum([len(event) for event in events])/len(events)
+    print "std: ", np.std([len(event) for event in events])
+    print "median: ", np.median([len(event) for event in events])
 
     #X = vectorize_and_filter(rope.values, window_length=50)
 
@@ -225,37 +225,29 @@ def main():
     k_means.fit(features)
 
 
+    def plot_events(events, labels, data_columns):
+        ax = None
+        for i, event in enumerate(events):
+            #index = np.array(event.index.to_pydatetime(), dtype=np.datetime64)
+            #values = np.hstack(event[[data_columns[0]]].values)
+            #ind = np.concatenate([values, index])
+            #new_events.append(ind)
+            part = event[[data_columns[3]]]
+            if ax is None:
+                ax = part.plot()
+            else:
+                part.plot(ax=ax)
+        colormap = [[cm.viridis, cm.plasma, cm.inferno][i] for i in labels]
+        #line = LineCollection(new_events, cmap=ListedColormap(colormap))
+        #fig1 = plt.figure()
+        #plt.gca().add_collection(line)
+        plt.show()
+
+
     vectors = k_means.cluster_centers_
     labels = k_means.labels_
+    plot_events(events, labels, data_columns)
     print labels
-
-=======
-    objects01 = {
-        '247189e98685': 'Remote Control',
-        '247189e83001': 'Spider Stick',
-        '247189e72603': 'Garden Door',
-        '247189e78180': 'Fridge',
-        '247189e76106': 'Breakfast Chair',
-        '247189e87d85': 'Tray',
-    }
-    objects02 = {
-        '247189e98d83': 'Chair Pillow',
-        '247189ea0782': 'Remote Control',
-        '247189e74381': 'Rope on Stairs',
-        '247189e64706': 'Kitchen Drawer',
-        '247189e61784': 'Fridge'
-    }
-
-    objects03 = {
-        '247189e61802': 'Kitchen Chair',
-        '247189e61682': 'Fridge',
-        '247189e76c05': 'Remote Control',
-        '247189e88b80': 'Kitchen Cabinet Door',
-        '247189e8e701': 'Knitting Needle',
-        '247189e6c680': 'Tablet'
-    }
-    plot_objects(objects02, df)
->>>>>>> 979e364947d94679a6dafbebf77331bb8b89b7b5
 
 
 if __name__ == '__main__':
