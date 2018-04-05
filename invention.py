@@ -224,10 +224,6 @@ def k_fold(X, y, n_splits=5):
     for train_index, test_index in kf.split(X, y):
         X_train, X_test = X[train_index], X[test_index]
         y_train, y_test = y[train_index], y[test_index]
-        # We classify with gaussian naive bayes clustering.
-        # This is because it seems likely that there is a
-        # normal distribution. For example fridges will be
-        # opened in approximately the same way every time.
         classifier = GaussianNB()
         classifier.fit(X_train, y_train)
 
@@ -236,8 +232,6 @@ def k_fold(X, y, n_splits=5):
         avg.append(score)
 
     score = sum(avg) / len(avg)
-    # The final score that we return is the average score
-    # over all the k folds
     return score
 
 
@@ -295,17 +289,10 @@ def main(device_name):
     window_lengths = [10, 20, 50, 100]
 
     data_column_matrix = [
-        ['humidity',
-         'accel_x', 'accel_y', 'accel_z',
-         'gyro_x', 'gyro_y', 'gyro_z'],
-        ['temperature',
-         'accel_x', 'accel_y', 'accel_z',
-         'gyro_x', 'gyro_y', 'gyro_z'],
-        ['lux',
-         'accel_x', 'accel_y', 'accel_z',
-         'gyro_x', 'gyro_y', 'gyro_z'],
-        ['lux',
-         'gyro_x', 'gyro_y', 'gyro_z']
+        ['mag_x', 'mag_y', 'mag_z'],
+        ['gyro_x', 'gyro_y', 'gyro_z'],
+        ['accel_x', 'accel_y', 'accel_z'],
+
     ]
 
     scores = grid_search_data_fields(
