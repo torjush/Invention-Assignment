@@ -18,6 +18,7 @@ import sys
 import glob
 import readInJson
 from sklearn.naive_bayes import GaussianNB
+from sklearn.neighbors import KNeighborsClassifier
 from sklearn.model_selection import KFold
 from sklearn.metrics import accuracy_score, confusion_matrix
 from docopt import docopt
@@ -27,6 +28,7 @@ pd.options.mode.chained_assignment = None
 
 
 def load_all_data(folder, file_names):
+    """Load all the data from the json files"""
     all_files = glob.glob(folder + file_names)
 
     print('Loading data')
@@ -49,6 +51,10 @@ def get_device_data(df, device_id):
 
 
 def extract_imu(device_df):
+    """Split the x, y, and z columns up into different columns.
+    If we would not do this, the gyro, accel and mag data would
+    be interleaved.
+    """
     if {'x', 'y', 'z'}.issubset(device_df.columns):
         device_df[['gyro_x', 'gyro_y', 'gyro_z']] = device_df[['x', 'y', 'z']].where(device_df['event'] == 'gyro')
         device_df[['accel_x', 'accel_y', 'accel_z']] = device_df[['x', 'y', 'z']].where(device_df['event'] == 'accel')
@@ -59,6 +65,14 @@ def extract_imu(device_df):
 
 
 def preprocess(df):
+    """Preprocess the data.
+    Basically, we fill in the nan values with reasonable replacements.
+    The measurements that are more or less constant over time get filled
+    in with the previous values.
+    The measurements that require some action to log data (the accelerometer
+    for instance) get filled in with zero, since this is the most logical
+    resting point.
+    """
     if 'temperature' in df.columns:
         df['temperature'] = df['temperature'].fillna(method='bfill')
     if 'pressure' in df.columns:
@@ -91,6 +105,8 @@ def vectorize_and_filter(data, filter_threshold, window_length):
         if np.abs(data[i:i + window_length][1].mean()) > filter_threshold:
             indices.append(i)
 
+    # reshape the data so every row can be classified as one filter
+    # we concatenate all different multimodal data into one feature vector.
     vectors = np.ndarray(shape=(len(indices), data.shape[1] * window_length))
     for i, index in enumerate(indices):
         window = data[index:index + window_length, :]
@@ -102,6 +118,15 @@ def vectorize_and_filter(data, filter_threshold, window_length):
 
 
 def prepare_data(devices, data_columns, filter_threshold, window_length):
+    """This function will do everything necessary to prepare the data
+    for classification.
+
+    First the imu data (all data with a space component) is loaded.
+    Then the preprocess function will clean up each separate data column.
+    Finally the data is vectorized (windowed) and the missing and faulty values
+    are filtered out.
+    The windowed and cleaned up data is returned.
+    """
     processed = {}
     for device in devices:
         processed[device] = extract_imu(devices[device])
@@ -163,14 +188,22 @@ def print_grid_search(length):
 
 
 def k_fold(X, y, n_splits=5):
+    """K-Fold Cross Validation"""
     kf = KFold(n_splits=n_splits, shuffle=True)
+    # The default number of splits are set to 5
+    # We tried 10 splits, but we did not have enough data
+    # for each split to have enough data to train,
 
     avg = []
 
     for train_index, test_index in kf.split(X, y):
         X_train, X_test = X[train_index], X[test_index]
         y_train, y_test = y[train_index], y[test_index]
-        classifier = GaussianNB()
+        # We classify with gaussian naive bayes clustering.
+        # This is because it seems likely that there is a
+        # normal distribution. For example fridges will be
+        # opened in approximately the same way every time.
+        classifier = KNeighborsClassifier()
         classifier.fit(X_train, y_train)
 
         y_pred = classifier.predict(X_test)
@@ -178,10 +211,13 @@ def k_fold(X, y, n_splits=5):
         avg.append(score)
 
     score = sum(avg) / len(avg)
+    # The final score that we return is the average score
+    # over all the k folds
     return score
 
 
 def print_matrix(mat, xlabels=None, ylabels=None):
+    """Print the matrix to the command line"""
     if xlabels:
         sys.stdout.write("\t")
         for label in xlabels:
