@@ -12,15 +12,13 @@ Options:
 
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
 import os
 import sys
 import glob
 import readInJson
 from sklearn.naive_bayes import GaussianNB
-from sklearn.neighbors import KNeighborsClassifier
 from sklearn.model_selection import KFold
-from sklearn.metrics import accuracy_score, confusion_matrix
+from sklearn.metrics import accuracy_score
 from docopt import docopt
 
 
@@ -56,9 +54,14 @@ def extract_imu(device_df):
     be interleaved.
     """
     if {'x', 'y', 'z'}.issubset(device_df.columns):
-        device_df[['gyro_x', 'gyro_y', 'gyro_z']] = device_df[['x', 'y', 'z']].where(device_df['event'] == 'gyro')
-        device_df[['accel_x', 'accel_y', 'accel_z']] = device_df[['x', 'y', 'z']].where(device_df['event'] == 'accel')
-        device_df[['mag_x', 'mag_y', 'mag_z']] = device_df[['x', 'y', 'z']].where(device_df['event'] == 'mag')
+        gyro = device_df[['x', 'y', 'z']].where(device_df['event'] == 'gyro')
+        device_df[['gyro_x', 'gyro_y', 'gyro_z']] = gyro
+
+        accel = device_df[['x', 'y', 'z']].where(device_df['event'] == 'accel')
+        device_df[['accel_x', 'accel_y', 'accel_z']] = accel
+
+        mag = device_df[['x', 'y', 'z']].where(device_df['event'] == 'mag')
+        device_df[['mag_x', 'mag_y', 'mag_z']] = mag
 
         device_df.drop(['x', 'y', 'z'], inplace=True)
     return device_df
@@ -133,24 +136,41 @@ def prepare_data(devices, data_columns, filter_threshold, window_length):
         processed[device] = preprocess(processed[device][data_columns])
 
         try:
-            X_new = vectorize_and_filter(processed[device].values, filter_threshold, window_length)
+            X_new = vectorize_and_filter(
+                processed[device].values,
+                filter_threshold,
+                window_length
+            )
             y_new = np.ones(X_new.shape[0]) * device
             X = np.concatenate((X, X_new), axis=0)
             y = np.concatenate((y, y_new))
         except NameError:
-            X = vectorize_and_filter(processed[device].values, filter_threshold, window_length)
+            X = vectorize_and_filter(
+                processed[device].values,
+                filter_threshold,
+                window_length
+            )
             y = np.ones(X.shape[0]) * device
 
     return X, y
 
 
-def grid_search_data_fields(devices, data_column_matrix, filter_thresholds, window_lengths):
+def grid_search_data_fields(devices, data_column_matrix,
+                            filter_thresholds, window_lengths):
     """Do grid search on all the configurations of data columns
     (humidity, temperature, acceleration, etc.), the filter_thresholds
     and the window lengths.
     """
-    length = len(data_column_matrix) * len(filter_thresholds) * len(window_lengths)
-    scores = np.ndarray(shape=(len(data_column_matrix), len(filter_thresholds), len(window_lengths)))
+    length = (
+        len(data_column_matrix) * len(filter_thresholds) * len(window_lengths)
+    )
+    scores = np.ndarray(
+        shape=(
+            len(data_column_matrix),
+            len(filter_thresholds),
+            len(window_lengths)
+        )
+    )
     printer = print_grid_search(length)
     next(printer)
 
@@ -158,7 +178,12 @@ def grid_search_data_fields(devices, data_column_matrix, filter_thresholds, wind
         for j, filter_threshold in enumerate(filter_thresholds):
             for k, window_length in enumerate(window_lengths):
                 next(printer)
-                X, y = prepare_data(devices, data_columns, filter_threshold, window_length)
+                X, y = prepare_data(
+                    devices,
+                    data_columns,
+                    filter_threshold,
+                    window_length
+                )
                 scores[i][j][k] = k_fold(X, y)
 
     try:
@@ -203,7 +228,7 @@ def k_fold(X, y, n_splits=5):
         # This is because it seems likely that there is a
         # normal distribution. For example fridges will be
         # opened in approximately the same way every time.
-        classifier = KNeighborsClassifier()
+        classifier = GaussianNB()
         classifier.fit(X_train, y_train)
 
         y_pred = classifier.predict(X_test)
@@ -228,7 +253,9 @@ def print_matrix(mat, xlabels=None, ylabels=None):
             sys.stdout.write(str(ylabels[i]) + "\t")
         for j in range(mat.shape[1]):
             if mat[i][j] == np.max(mat):
-                sys.stdout.write("|\033[1;36m{:.4f}\033[0m\t".format(mat[i][j]))
+                sys.stdout.write(
+                    "|\033[1;36m{:.4f}\033[0m\t".format(mat[i][j])
+                )
             else:
                 sys.stdout.write("|{:.4f}\t".format(mat[i][j]))
         sys.stdout.write("|\n")
@@ -281,7 +308,12 @@ def main(device_name):
          'gyro_x', 'gyro_y', 'gyro_z']
     ]
 
-    scores = grid_search_data_fields(device_data, data_column_matrix, filter_thresholds, window_lengths)
+    scores = grid_search_data_fields(
+        device_data,
+        data_column_matrix,
+        filter_thresholds,
+        window_lengths
+    )
     print("Cross Validation result from training Gaussian Naive Bayes")
     for i in range(scores.shape[0]):
         print("With data columns: " + ", ".join(data_column_matrix[i]))
