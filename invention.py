@@ -87,12 +87,12 @@ def preprocess(df):
     return df
 
 
-def vectorize_and_filter(data, filter_threshold, window_length):
+def vectorize_and_filter(data, filter_threshold, window_length, filter_index=1):
     """Window values in data and concatenate signal to make vectors"""
     indices = []
     for i in range(data.shape[0] - window_length):
         # Filter on movement data
-        if np.abs(data[i:i + window_length][1].mean()) > filter_threshold:
+        if np.abs(data[i:i + window_length][filter_index].mean()) > filter_threshold:
             indices.append(i)
 
     vectors = np.ndarray(shape=(len(indices), data.shape[1] * window_length))
@@ -172,7 +172,7 @@ def grid_search_data_fields(devices, data_column_matrix,
 def print_grid_search(length):
     """Print a status bar, since grid search can take a while"""
     print("Running Grid Search:")
-    toolbar_width = 32
+    toolbar_width = 40
     sys.stdout.write("[%s]" % (" " * toolbar_width))
     sys.stdout.flush()
     sys.stdout.write("\b" * (toolbar_width+1))
@@ -260,9 +260,6 @@ def main(device_name):
     window_lengths = [10, 20, 50, 100]
 
     data_column_matrix = [
-        ['humidity',
-         'accel_x', 'accel_y', 'accel_z',
-         'gyro_x', 'gyro_y', 'gyro_z'],
         ['temperature',
          'accel_x', 'accel_y', 'accel_z',
          'gyro_x', 'gyro_y', 'gyro_z'],
@@ -270,7 +267,9 @@ def main(device_name):
          'accel_x', 'accel_y', 'accel_z',
          'gyro_x', 'gyro_y', 'gyro_z'],
         ['lux',
-         'gyro_x', 'gyro_y', 'gyro_z']
+         'gyro_x', 'gyro_y', 'gyro_z'],
+        ['accel_x', 'accel_y', 'accel_z'],
+        ['mag_x', 'mag_y', 'mag_z']
     ]
 
     scores = grid_search_data_fields(
